@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+
+# Build & Output
+dist
+
+# Environment / Secret Files
+.env
+.env.local
+
+# AI Context / Temporary Files
+repomix-output.txt
+DO NOT SHARE.txt
+
+# OS Files
+.DS_Store
+Thumbs.db
