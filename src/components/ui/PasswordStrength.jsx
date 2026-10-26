@@ -1,3 +1,4 @@
+// File: src/components/ui/PasswordStrength.jsx
 import { FaCheck, FaCircle } from 'react-icons/fa6';
 
 /* ============================================================
@@ -49,46 +50,54 @@ export function PasswordStrength({ checks, score }) {
     score >= 40 ? 'fair'   :
     score >  0  ? 'weak'   : 'empty';
 
+  /* Muted status palette: coral → sand → mint → sea */
   const styles = {
-    empty:  { bar: 'bg-slate-300',   text: 'text-slate-500',   label: '—' },
-    weak:   { bar: 'bg-red-500',     text: 'text-red-600',     label: 'Weak' },
-    fair:   { bar: 'bg-amber-500',   text: 'text-amber-600',   label: 'Fair' },
-    good:   { bar: 'bg-lime-500',    text: 'text-lime-600',    label: 'Good' },
-    strong: { bar: 'bg-emerald-500', text: 'text-emerald-600', label: 'Strong' },
+    empty:  { bar: 'bg-ink-200',   text: 'text-ink-500',   label: '—' },
+    weak:   { bar: 'bg-coral-400', text: 'text-coral-600', label: 'Weak' },
+    fair:   { bar: 'bg-sand-400',  text: 'text-sand-700',  label: 'Fair' },
+    good:   { bar: 'bg-mint-600',  text: 'text-mint-800',  label: 'Good' },
+    strong: { bar: 'bg-sea-500',   text: 'text-sea-700',   label: 'Strong' },
   }[tone];
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+    <div className="glass-soft rounded-2xl p-4 text-sm">
 
       {/* ---- Header ---- */}
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-slate-700">Password Strength</span>
-        <span className={`font-bold ${styles.text}`}>
+        <span className="font-semibold text-ink-700">Password Strength</span>
+        <span className={`font-bold tabular-nums ${styles.text}`}>
           {score}% · {styles.label}
         </span>
       </div>
 
       {/* ---- Progress bar ---- */}
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+      <div
+        className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink-100"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={score}
+        aria-label="Password strength"
+      >
         <div
-          className={`h-full rounded-full transition-all duration-300 ${styles.bar}`}
+          className={`h-full rounded-full transition-all duration-500 ease-out-expo ${styles.bar}`}
           style={{ width: `${score}%` }}
         />
       </div>
 
       {/* ---- Requirements list ---- */}
-      <p className="mt-3 font-semibold text-slate-700">Password Requirements:</p>
+      <p className="mt-3 font-semibold text-ink-700">Password Requirements:</p>
       <ul className="mt-2 space-y-1">
         {CHECKS.map(({ key, label }) => {
           const ok = checks[key];
           return (
             <li key={key} className="flex items-center gap-2">
               {ok ? (
-                <FaCheck size={10} className="shrink-0 text-emerald-500" />
+                <FaCheck size={10} className="shrink-0 text-sea-500" />
               ) : (
-                <FaCircle size={5} className="shrink-0 text-slate-400" />
+                <FaCircle size={5} className="shrink-0 text-ink-300" />
               )}
-              <span className={ok ? 'text-emerald-700' : 'text-slate-600'}>
+              <span className={ok ? 'text-sea-700' : 'text-ink-600'}>
                 {label}
               </span>
             </li>
@@ -97,7 +106,7 @@ export function PasswordStrength({ checks, score }) {
       </ul>
 
       {/* ---- Caution text ---- */}
-      <p className="mt-3 text-xs leading-relaxed text-slate-500">
+      <p className="mt-3 text-xs leading-relaxed text-ink-500">
         Avoid passwords that you use with other websites or that might be easy
         for someone else to guess.
       </p>

@@ -1,143 +1,201 @@
+// File: src/pages/Devices.jsx
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
-  FaDroplet, FaCirclePlus, FaPencil, FaTrashCan, FaCircleCheck,
-  FaMagnifyingGlass, FaWifi, FaBarsStaggered, FaPlugCircleXmark,
+  FaDroplet, FaPlus, FaPencil, FaTrashCan,
+  FaMagnifyingGlass, FaBarsStaggered, FaChevronDown,
 } from 'react-icons/fa6';
 import { database, ref, set, update, onValue } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
-import { useDevices } from '@/hooks/useDevices';
+import { useDeviceFleet, statusRank } from '@/hooks/useDeviceFleet';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { TopBar } from '@/components/layout/TopBar';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Toast } from '@/components/ui/Toast';
 import { EditDeviceModal } from '@/components/devices/EditDeviceModal';
-
-/* ============================================================
-   STALENESS THRESHOLD — matches useDeviceStatus on the Dashboard
-   ============================================================ */
-const STALE_THRESHOLD_MS = 60_000;
+import {
+  DeviceCollection, ViewToggle, MANY_DEVICES,
+} from '@/components/dashboard/DeviceCollection';
+import { plural } from '@/lib/format';
 
 export default function Devices() {
   const { user } = useAuth();
   const { openAddDevice } = useOutletContext();
-  const { devices, loading } = useDevices(user.uid);
+  const { list, loading } = useDeviceFleet(user.uid);
 
-  const [liveMap, setLiveMap]           = useState({});
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+
   const [defaultId, setDefaultId]       = useState(null);
   const [editorMode, setEditorMode]     = useState(false);
   const [editTarget, setEditTarget]     = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting]         = useState(false);
   const [search, setSearch]             = useState('');
   const [sortBy, setSortBy]             = useState('name');
-
-  /* ---- Single shared clock — one tick drives all cards ---- */
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 15_000);
-    return () => clearInterval(id);
-  }, []);
-
-  /* ---- Live data subscriptions ---- */
-  useEffect(() => {
-    const unsubs = [];
-    Object.keys(devices).forEach((id) => {
-      const unsub = onValue(ref(database, `devices/${id}/live_data`), (snap) => {
-        setLiveMap((prev) => ({ ...prev, [id]: snap.val() || {} }));
-      });
-      unsubs.push(unsub);
-    });
-    return () => unsubs.forEach((u) => u());
-  }, [devices]);
+  const [view, setView]                 = useState('cards');
+  const [viewTouched, setViewTouched]   = useState(false);
+  const [toast, setToast]               = useState(null);
 
   /* ---- Default device preference ---- */
   useEffect(() => {
     const unsub = onValue(
       ref(database, `users/${user.uid}/default_device_id`),
-      (snap) => setDefaultId(snap.val() || null)
+      (snap) => setDefaultId(snap.val() || null),
     );
     return unsub;
   }, [user.uid]);
 
   /* ---- Filter + sort ---- */
-  const list = useMemo(() => {
+  const visible = useMemo(() => {
     const q = search.toLowerCase().trim();
-    const filtered = Object.values(devices).filter(
-      (d) => d.name.toLowerCase().includes(q) || d.id.toLowerCase().includes(q)
+    const filtered = list.filter(
+      (d) => d.name.toLowerCase().includes(q) || d.id.toLowerCase().includes(q),
     );
+
     return filtered.sort((a, b) => {
-      const la = liveMap[a.id] || {}, lb = liveMap[b.id] || {};
       switch (sortBy) {
-        case 'status': return String(lb.leak_status || '').localeCompare(String(la.leak_status || ''));
-        case 'flow':   return Number(lb.current_flow || 0) - Number(la.current_flow || 0);
-        case 'volume': return Number(lb.todays_usage || 0) - Number(la.todays_usage || 0);
+        case 'status': return statusRank(a.status) - statusRank(b.status) || a.name.localeCompare(b.name);
+        case 'flow':   return b.flow - a.flow;
+        case 'volume': return b.usage - a.usage;
         case 'date':   return (b.linkedAt || 0) - (a.linkedAt || 0);
         default:       return a.name.localeCompare(b.name);
       }
     });
-  }, [devices, liveMap, search, sortBy]);
+  }, [list, search, sortBy]);
+
+  /* From 6 devices up the list is the default, unless the user chose a view. */
+  const many = list.length >= MANY_DEVICES;
+  const effectiveView = !many ? 'cards' : !isDesktop ? 'list' : viewTouched ? view : 'list';
 
   async function setAsDefault(id) {
-    await set(ref(database, `users/${user.uid}/default_device_id`), id);
+    try {
+      await set(ref(database, `users/${user.uid}/default_device_id`), id);
+    } catch (err) {
+      setToast({ type: 'error', message: 'Could not set the default device.' });
+    }
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return;
-    const id = deleteTarget.id;
+    const { id, name } = deleteTarget;
+    setDeleting(true);
 
-    await update(ref(database), {
-      [`users/${user.uid}/user_devices/${id}`]: null,
-      [`devices/${id}/claimed_by`]:             null,
-    });
-
-    setDeleteTarget(null);
+    try {
+      await update(ref(database), {
+        [`users/${user.uid}/user_devices/${id}`]: null,
+        [`devices/${id}/claimed_by`]:             null,
+      });
+      setToast({ type: 'success', message: `“${name}” was unlinked.` });
+      setDeleteTarget(null);
+    } catch (err) {
+      setToast({ type: 'error', message: 'Could not unlink the device. Please try again.' });
+    } finally {
+      setDeleting(false);
+    }
   }
+
+  /* Per-device actions: default tag/button, plus edit + unlink in Manage mode */
+  const renderActions = (d) => (
+    <>
+      {d.id !== defaultId && (
+        <button
+          type="button"
+          onClick={() => setAsDefault(d.id)}
+          title="Set as default device"
+          className="rounded-xl bg-white/70 px-2.5 py-1.5 text-[11px] font-bold text-ink-500 transition-colors hover:bg-white hover:text-hydro-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
+        >
+          Set default
+        </button>
+      )}
+
+      {editorMode && (
+        <>
+          <button
+            type="button"
+            onClick={() => setEditTarget({ id: d.id, name: d.name })}
+            aria-label={`Edit ${d.name}`}
+            title="Edit"
+            className="grid h-8 w-8 place-items-center rounded-xl bg-white/70 text-ink-500 transition-colors hover:bg-white hover:text-hydro-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
+          >
+            <FaPencil size={11} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteTarget({ id: d.id, name: d.name })}
+            aria-label={`Unlink ${d.name}`}
+            title="Unlink"
+            className="grid h-8 w-8 place-items-center rounded-xl bg-white/70 text-ink-500 transition-colors hover:bg-coral-50 hover:text-coral-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
+          >
+            <FaTrashCan size={11} />
+          </button>
+        </>
+      )}
+    </>
+  );
 
   return (
     <>
-      <TopBar title="Devices" icon={FaDroplet} />
+      <TopBar
+        title="Devices"
+        icon={FaDroplet}
+        subtitle={loading ? 'Loading devices…' : `${plural(list.length, 'device')} linked`}
+      />
 
       {/* ============================================================
           TOOLBAR
           ============================================================ */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <FaMagnifyingGlass
-            size={15}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-          />
+        <div className="relative min-w-[220px] flex-1">
+          <FaMagnifyingGlass size={14} className="hydro-input-icon" />
           <input
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by device name or ID…"
+            aria-label="Search devices"
             className="hydro-input !pl-10"
           />
         </div>
 
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="hydro-input w-auto cursor-pointer !pl-4"
-        >
-          <option value="name">Sort: Name (A–Z)</option>
-          <option value="status">Sort: Status</option>
-          <option value="flow">Sort: Flow (High → Low)</option>
-          <option value="volume">Sort: Volume (High → Low)</option>
-          <option value="date">Sort: Newest</option>
-        </select>
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort devices"
+            className="hydro-input w-auto cursor-pointer appearance-none !pr-10"
+          >
+            <option value="name">Sort: Name (A–Z)</option>
+            <option value="status">Sort: Needs attention</option>
+            <option value="flow">Sort: Flow (High → Low)</option>
+            <option value="volume">Sort: Volume (High → Low)</option>
+            <option value="date">Sort: Newest</option>
+          </select>
+          <FaChevronDown
+            size={11}
+            className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-ink-400"
+          />
+        </div>
+
+        {many && (
+          <ViewToggle
+            value={effectiveView}
+            onChange={(v) => { setView(v); setViewTouched(true); }}
+            className="hidden md:flex"
+          />
+        )}
 
         <div className="ml-auto flex items-center gap-3">
-          <GlassButton
-            leftIcon={<FaCirclePlus size={16} />}
-            onClick={openAddDevice}
-          >
+          <GlassButton leftIcon={<FaPlus size={12} />} onClick={openAddDevice}>
             Add Device
           </GlassButton>
 
           <GlassButton
             variant="ghost"
+            aria-pressed={editorMode}
             onClick={() => setEditorMode((m) => !m)}
-            className={editorMode ? 'ring-2 ring-hydro/30' : ''}
+            className={editorMode ? '!border-hydro/40 !bg-hydro-50 !text-hydro-700' : ''}
           >
             {editorMode ? 'Done' : 'Manage'}
           </GlassButton>
@@ -148,242 +206,44 @@ export default function Devices() {
           CONTENT
           ============================================================ */}
       {loading ? (
-        <GlassCard className="py-16 text-center text-slate-500">
-          Loading devices…
-        </GlassCard>
-      ) : list.length === 0 ? (
-        <EmptyState onAdd={openAddDevice} hasDevices={Object.keys(devices).length > 0} />
-      ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((d) => (
-            <DeviceCard
-              key={d.id}
-              device={d}
-              live={liveMap[d.id] || {}}
-              isDefault={d.id === defaultId}
-              editorMode={editorMode}
-              now={now}
-              onSetDefault={() => setAsDefault(d.id)}
-              onEdit={() => setEditTarget({ id: d.id, name: d.name })}
-              onDelete={() => setDeleteTarget({ id: d.id, name: d.name })}
-            />
-          ))}
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+          {[0, 1, 2].map((i) => <div key={i} className="skeleton h-56 !rounded-3xl" />)}
         </div>
+      ) : visible.length === 0 ? (
+        <EmptyState onAdd={openAddDevice} hasDevices={list.length > 0} />
+      ) : (
+        <DeviceCollection
+          devices={visible}
+          view={effectiveView}
+          defaultId={defaultId}
+          renderActions={renderActions}
+        />
       )}
 
       <EditDeviceModal
         open={Boolean(editTarget)}
         device={editTarget}
         onClose={() => setEditTarget(null)}
-        onSaved={() => setEditTarget(null)}
+        onSaved={() => {
+          setEditTarget(null);
+          setToast({ type: 'success', message: 'Device name updated.' });
+        }}
       />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Unlink device"
-        message={`Unlink "${deleteTarget?.name}" from your account? The device's history and alerts will be preserved on the server.`}
-        confirmLabel="Unlink Device"
+        message={`Unlink “${deleteTarget?.name}” from your account? The device's history and alerts will be preserved on the server.`}
+        confirmLabel="Unlink device"
         danger
-        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+        onCancel={() => !deleting && setDeleteTarget(null)}
         onConfirm={confirmDelete}
       />
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </>
   );
-}
-
-/* ============================================================
-   DEVICE CARD — extracted so status logic stays isolated
-   ============================================================ */
-
-function DeviceCard({
-  device,
-  live,
-  isDefault,
-  editorMode,
-  now,
-  onSetDefault,
-  onEdit,
-  onDelete,
-}) {
-  const ts = Number(live?.timestamp || 0);
-  const isOnline = ts > 0 && (now - ts) < STALE_THRESHOLD_MS;
-  const secondsAgo = ts > 0 ? Math.floor((now - ts) / 1000) : null;
-
-  /* Raw values from RTDB */
-  const rawFlow = Number(live.current_flow || 0);
-  const usage   = Number(live.todays_usage || 0);
-
-  /* When offline, force flow to zero — the stale value is misleading.
-     Usage is cumulative, so we keep it (it's still meaningful). */
-  const flow = isOnline ? rawFlow : 0;
-
-  const isAlert = isOnline && (live.leak_status === 'LEAK' || live.leak_status === 'ALERT');
-  const isActive = isOnline && (flow > 0 || live.leak_status === 'ACTIVE');
-
-  /* ---- Derived visual state ---- */
-  const state = !isOnline ? 'offline' : isAlert ? 'alert' : isActive ? 'active' : 'idle';
-
-  /* ---- Icon badge tint ---- */
-  const iconCls = {
-    offline: 'bg-slate-300',
-    idle:    'bg-slate-300',
-    active:  'bg-mint-500',
-    alert:   'bg-red-500 animate-pulse',
-  }[state];
-
-  /* ---- Status label ---- */
-  const statusLabel = {
-    offline: 'Offline',
-    idle:    'Idle',
-    active:  'Active',
-    alert:   'Leak',
-  }[state];
-
-  /* ---- Status dot tint ---- */
-  const dotCls = {
-    offline: 'bg-slate-300',
-    idle:    'bg-slate-300',
-    active:  'bg-mint-500',
-    alert:   'bg-red-500',
-  }[state];
-
-  return (
-    <GlassCard padded={false} className="overflow-hidden">
-
-      {/* ============================================================
-          HEADER
-          ============================================================ */}
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
-        <div className="min-w-0">
-          <h3 className="truncate text-base font-bold text-slate-800">
-            {device.name}
-          </h3>
-          <code className="mt-0.5 block font-mono text-[11px] text-slate-500">
-            {device.id}
-          </code>
-        </div>
-
-        <span
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white shadow-sm ${iconCls}`}
-          title={statusLabel}
-        >
-          {state === 'offline'
-            ? <FaPlugCircleXmark size={14} />
-            : <FaWifi size={14} />}
-        </span>
-      </div>
-
-      {/* ============================================================
-          BODY — live metrics
-          ============================================================ */}
-      <div className="grid grid-cols-2 gap-3 px-5 py-4">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Flow
-          </p>
-          <p className="mt-1 flex items-baseline gap-1">
-            <span
-              className={[
-                'text-lg font-bold transition-colors',
-                isOnline ? 'text-slate-800' : 'text-slate-400',
-              ].join(' ')}
-            >
-              {flow.toFixed(1)}
-            </span>
-            <span
-              className={[
-                'text-xs font-semibold',
-                isOnline ? 'text-hydro-600' : 'text-slate-400',
-              ].join(' ')}
-            >
-              LPM
-            </span>
-          </p>
-        </div>
-
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Today
-          </p>
-          <p className="mt-1 flex items-baseline gap-1">
-            <span className="text-lg font-bold text-slate-800">
-              {usage.toFixed(1)}
-            </span>
-            <span className="text-xs font-semibold text-hydro-600">L</span>
-          </p>
-        </div>
-      </div>
-
-      {/* ============================================================
-          OFFLINE SUBTITLE (only when offline)
-          ============================================================ */}
-      {!isOnline && (
-        <div className="-mt-2 px-5 pb-3 text-[11px] text-slate-400">
-          {secondsAgo !== null
-            ? `Last seen ${formatAgo(secondsAgo)}`
-            : 'Never connected'}
-        </div>
-      )}
-
-      {/* ============================================================
-          FOOTER — status + actions
-          ============================================================ */}
-      <div className="flex items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-3">
-        <div className="flex items-center gap-2">
-          <span className={`h-2 w-2 rounded-full ${dotCls}`} />
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            {statusLabel}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          {isDefault ? (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-hydro-100 px-2 py-1 text-[10px] font-bold uppercase text-hydro-700">
-              <FaCircleCheck size={10} /> Default
-            </span>
-          ) : (
-            <button
-              onClick={onSetDefault}
-              className="rounded-lg bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-slate-500 transition hover:bg-hydro-50 hover:text-hydro-700"
-              title="Set as default device"
-            >
-              Set Default
-            </button>
-          )}
-
-          {editorMode && (
-            <>
-              <button
-                onClick={onEdit}
-                className="grid h-7 w-7 place-items-center rounded-lg bg-white text-slate-500 transition hover:bg-hydro-50 hover:text-hydro-700"
-                title="Edit"
-              >
-                <FaPencil size={11} />
-              </button>
-              <button
-                onClick={onDelete}
-                className="grid h-7 w-7 place-items-center rounded-lg bg-white text-slate-500 transition hover:bg-red-50 hover:text-red-600"
-                title="Unlink"
-              >
-                <FaTrashCan size={11} />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </GlassCard>
-  );
-}
-
-/* ============================================================
-   HELPERS
-   ============================================================ */
-
-function formatAgo(seconds) {
-  if (seconds < 60)    return `${seconds}s ago`;
-  if (seconds < 3600)  return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 /* ============================================================
@@ -394,34 +254,27 @@ function EmptyState({ onAdd, hasDevices }) {
   if (hasDevices) {
     return (
       <GlassCard className="py-16 text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-slate-100 text-slate-400">
-          <FaMagnifyingGlass size={22} />
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-ink-50 text-ink-400">
+          <FaMagnifyingGlass size={20} />
         </span>
-        <h3 className="mt-4 text-base font-bold text-slate-800">No matching devices</h3>
-        <p className="mt-1 text-sm text-slate-500">
-          Try a different search term.
-        </p>
+        <h3 className="mt-4 text-base font-bold text-ink-900">No matching devices</h3>
+        <p className="mt-1 text-sm text-ink-500">Try a different search term.</p>
       </GlassCard>
     );
   }
 
   return (
-    <GlassCard className="py-16 text-center">
-      <span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-hydro/10 text-hydro">
-        <FaBarsStaggered size={26} />
+    <GlassCard variant="strong" padded="lg" className="py-16 text-center">
+      <span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-hydro-gradient text-white shadow-brand">
+        <FaBarsStaggered size={24} />
       </span>
-      <h3 className="mt-5 text-lg font-bold text-slate-800">
-        No devices linked yet
-      </h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">
+      <h3 className="mt-5 text-xl font-extrabold tracking-tight text-ink-900">No devices linked yet</h3>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-500">
         Link your HydroTrack hardware to start receiving live flow readings and alerts.
       </p>
       <div className="mt-6 flex justify-center">
-        <GlassButton
-          leftIcon={<FaCirclePlus size={16} />}
-          onClick={onAdd}
-        >
-          Add Your First Device
+        <GlassButton leftIcon={<FaPlus size={12} />} onClick={onAdd}>
+          Add your first device
         </GlassButton>
       </div>
     </GlassCard>

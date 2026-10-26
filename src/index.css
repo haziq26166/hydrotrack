@@ -1,111 +1,287 @@
+/* File: src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ============================================================
-   BASE — Canvas
+   BASE — Canvas, typography, scrollbars
+   The page backdrop is a fixed pseudo-element (not
+   `background-attachment: fixed`) so it also behaves on iOS Safari.
+   <html> carries the flat colour, <body> stays transparent, and
+   body::before paints the soft aqua "water" glow behind everything.
    ============================================================ */
 @layer base {
   html, body, #root {
     @apply h-full;
   }
+
+  html {
+    background-color: #E4F4F6;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply font-sans text-slate-800 antialiased;
-    background-color: #F5F5F7;
+    @apply font-sans text-ink-800 antialiased;
+    background: transparent;
+    font-variant-numeric: tabular-nums;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(60rem 40rem at 6% -8%,  rgba(34, 184, 207, 0.30), transparent 62%),
+      radial-gradient(50rem 36rem at 102% 8%, rgba(127, 231, 214, 0.34), transparent 62%),
+      radial-gradient(46rem 34rem at 72% 108%, rgba(10, 127, 139, 0.18), transparent 62%),
+      linear-gradient(180deg, #EEF9FA 0%, #E4F4F6 100%);
+  }
+
+  h1, h2, h3, h4 {
+    @apply tracking-tight text-ink-900;
   }
 
   ::selection {
-    background: #3BA7F2;
+    background: #22B8CF;
     color: white;
+  }
+
+  /* Thin, quiet scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(8, 70, 85, 0.25) transparent;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(8, 70, 85, 0.22);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(8, 70, 85, 0.38); }
+}
+
+/* ============================================================
+   COMPONENTS
+   ============================================================ */
+@layer components {
+
+  /* ---------- Frosted glass surfaces ---------- */
+  .glass {
+    @apply bg-white/55 backdrop-blur-xl backdrop-saturate-150
+           border border-white/70 shadow-glass;
+  }
+  .glass-strong {
+    @apply bg-white/75 backdrop-blur-2xl backdrop-saturate-150
+           border border-white/80 shadow-glass-lg;
+  }
+  .glass-soft {
+    @apply bg-white/35 backdrop-blur-lg
+           border border-white/60 shadow-glass-sm;
+  }
+
+  /* ---------- Tinted glass (status banners & cards) ---------- */
+  .glass-ok {
+    @apply bg-sea-50/70 backdrop-blur-xl border border-sea-200/70 shadow-glass;
+  }
+  .glass-warn {
+    @apply bg-sand-50/75 backdrop-blur-xl border border-sand-200/80 shadow-glass;
+  }
+  .glass-leak {
+    @apply bg-coral-50/75 backdrop-blur-xl border border-coral-200/80 shadow-glass;
+  }
+  .glass-offline {
+    @apply bg-fog-50/70 backdrop-blur-xl border border-fog-200/80 shadow-glass-sm;
+  }
+  .glass-aqua {
+    @apply bg-aqua-50/70 backdrop-blur-xl border border-aqua-200/70 shadow-glass;
+  }
+
+  /* ---------- Inputs ---------- */
+  .hydro-input {
+    @apply w-full rounded-2xl bg-white/70 backdrop-blur-md
+           border border-ink-200 px-4 py-3
+           text-ink-800 placeholder:text-ink-400
+           focus:outline-none focus:ring-4 focus:ring-aqua/20 focus:border-aqua
+           disabled:cursor-not-allowed disabled:bg-ink-50/70 disabled:text-ink-400
+           transition duration-200;
+  }
+  .hydro-input-icon {
+    @apply absolute left-4 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none;
+  }
+
+  /* ---------- Buttons — shared foundation ---------- */
+  .btn-hydro,
+  .btn-hydro-outline,
+  .btn-google,
+  .btn-glass,
+  .glass-btn-ghost,
+  .btn-aqua-ghost,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3
+           font-semibold select-none
+           transition-all duration-200 ease-out-expo
+           focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30
+           active:scale-[0.98]
+           disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
+  }
+
+  /* Primary — brand gradient */
+  .btn-hydro {
+    @apply bg-hydro-gradient text-white shadow-brand
+           hover:-translate-y-px hover:shadow-brand-lg hover:brightness-105
+           disabled:hover:translate-y-0 disabled:hover:shadow-brand disabled:hover:brightness-100;
+  }
+
+  /* Outline — for use on dark / gradient surfaces */
+  .btn-hydro-outline {
+    @apply border-2 border-white/80 text-white
+           hover:bg-white/15;
+  }
+
+  /* Google sign-in */
+  .btn-google {
+    @apply w-full border border-ink-200 bg-white text-ink-700 shadow-glass-sm
+           hover:border-ink-300 hover:bg-ink-50;
+  }
+
+  /* Ghost / glass */
+  .btn-glass,
+  .glass-btn-ghost {
+    @apply border border-white/80 bg-white/70 text-hydro-700 backdrop-blur-md shadow-glass-sm
+           hover:bg-white/95;
+  }
+
+  /* Soft aqua */
+  .btn-aqua-ghost {
+    @apply border border-aqua-200 bg-aqua-50 text-aqua-800
+           hover:bg-aqua-100;
+  }
+
+  /* Destructive — muted coral, not alarm-red */
+  .btn-danger {
+    @apply bg-coral-500 text-white shadow-alert
+           hover:bg-coral-600;
+  }
+
+  /* ---------- Navigation item (sidebar / drawer) ---------- */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-semibold
+           text-ink-500 bg-transparent
+           transition-colors duration-200;
+  }
+  .nav-item:hover {
+    @apply bg-white/60 text-hydro-700;
+  }
+  .nav-item.active {
+    @apply bg-white/90 text-hydro-700 shadow-glass-sm;
+  }
+
+  /* ---------- Status chips (muted) ---------- */
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border
+           px-2.5 py-1 text-xs font-semibold;
+  }
+  .chip-ok      { @apply border-sea-200   bg-sea-50/80   text-sea-700; }
+  .chip-warn    { @apply border-sand-200  bg-sand-50/80  text-sand-700; }
+  .chip-leak    { @apply border-coral-200 bg-coral-50/80 text-coral-700; }
+  .chip-offline { @apply border-fog-200   bg-fog-50/80   text-fog-600; }
+  .chip-info    { @apply border-aqua-200  bg-aqua-50/80  text-aqua-800; }
+
+  /* ---------- Typographic helpers for KPI / metric blocks ---------- */
+  .kpi-label {
+    @apply text-xs font-semibold uppercase tracking-wider text-ink-500;
+  }
+  .kpi-value {
+    @apply text-3xl font-extrabold tracking-tight text-ink-900 tabular-nums;
+  }
+  .kpi-unit {
+    @apply text-sm font-semibold text-ink-400;
+  }
+  .section-title {
+    @apply text-base font-bold tracking-tight text-ink-900;
+  }
+
+  /* ---------- Skeleton shimmer ---------- */
+  .skeleton {
+    @apply rounded-xl animate-shimmer;
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.35) 0%,
+      rgba(255, 255, 255, 0.85) 50%,
+      rgba(255, 255, 255, 0.35) 100%
+    );
+    background-size: 200% 100%;
   }
 }
 
 /* ============================================================
-   LIQUID GLASS UTILITIES
+   UTILITIES
    ============================================================ */
-@layer components {
-  /* ---- Frosted glass surfaces ---- */
-  .glass {
-    @apply bg-white/60 backdrop-blur-xl border border-white/70 shadow-glass;
+@layer utilities {
+  /* Hide scrollbar but keep scrolling (carousels, tab strips) */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
-  .glass-strong {
-    @apply bg-white/80 backdrop-blur-2xl border border-white/80 shadow-glass-lg;
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* Horizontal scroll-snap carousel (mobile device cards) */
+  .snap-carousel {
+    @apply flex gap-4 overflow-x-auto no-scrollbar;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
-  .glass-soft {
-    @apply bg-white/40 backdrop-blur-lg border border-white/60 shadow-glass;
+  .snap-item {
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    flex-shrink: 0;
   }
 
-  /* ---- Inputs ---- */
-  .hydro-input {
-    @apply w-full rounded-xl bg-white/70 backdrop-blur-md border border-slate-200
-           px-4 py-3 text-slate-800 placeholder:text-slate-400
-           focus:outline-none focus:ring-2 focus:ring-aqua/40 focus:border-aqua
-           transition;
-  }
-  .hydro-input-icon {
-    @apply absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none;
-  }
+  /* Safe-area padding for notched phones */
+  .pt-safe { padding-top:    env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pl-safe { padding-left:   env(safe-area-inset-left); }
+  .pr-safe { padding-right:  env(safe-area-inset-right); }
 
-  /* ---- Buttons ---- */
-  .btn-hydro {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3.5
-           font-semibold text-white
-           bg-hydro hover:bg-hydro-light
-           shadow-hydro active:scale-[0.98] transition
-           disabled:opacity-50 disabled:cursor-not-allowed;
+  /* Page entrance — apply to the routed content wrapper */
+  .page-enter {
+    @apply animate-fade-in-up;
   }
+}
 
-  .btn-hydro-outline {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3
-           font-semibold text-white
-           border-2 border-white/80 hover:bg-white/10
-           active:scale-[0.98] transition
-           disabled:opacity-50 disabled:cursor-not-allowed;
-  }
+/* ============================================================
+   FALLBACKS & ACCESSIBILITY
+   ============================================================ */
 
-  .btn-google {
-    @apply w-full inline-flex items-center justify-center gap-3 rounded-xl px-5 py-3.5
-           font-semibold text-slate-700
-           bg-white border border-slate-300 hover:bg-slate-50
-           active:scale-[0.98] transition
-           disabled:opacity-50 disabled:cursor-not-allowed;
-  }
+/* Browsers without backdrop-filter get near-opaque surfaces so text
+   never sits on a busy, un-blurred backdrop. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-soft,
+  .glass-ok,
+  .glass-warn,
+  .glass-leak,
+  .glass-offline,
+  .glass-aqua  { background-color: rgba(255, 255, 255, 0.90); }
+  .glass-strong { background-color: rgba(255, 255, 255, 0.96); }
+}
 
-  .btn-glass {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3
-           font-semibold text-hydro
-           bg-white/70 backdrop-blur-md border border-white/80
-           hover:bg-white/95 active:scale-[0.98] transition
-           disabled:opacity-50 disabled:cursor-not-allowed;
-  }
+/* Respect the user's motion preference: no looping or large movement. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 
-  .btn-aqua-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3
-           font-semibold text-aqua-700
-           bg-aqua-50 border border-aqua-200
-           hover:bg-aqua-100 active:scale-[0.98] transition
-           disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3
-           font-semibold text-white
-           bg-red-500 hover:bg-red-600
-           shadow-lg shadow-red-500/30
-           active:scale-[0.98] transition
-           disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  /* ---- Sidebar nav item ---- */
-  .nav-item {
-    @apply flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium
-           text-slate-500 bg-transparent
-           transition-colors duration-150;
-  }
-  .nav-item:hover {
-    @apply bg-hydro/5 text-hydro;
-  }
-  .nav-item.active {
-    @apply bg-hydro/10 text-hydro;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

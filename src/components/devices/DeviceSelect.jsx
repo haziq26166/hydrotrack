@@ -1,4 +1,5 @@
-import { ChevronDown } from 'lucide-react';
+// File: src/components/devices/DeviceSelect.jsx
+import { FaChevronDown } from 'react-icons/fa6';
 
 /**
  * Reusable glassy device picker.
@@ -16,7 +17,8 @@ export function DeviceSelect({ devices, value, onChange, allLabel = 'All Devices
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="hydro-input appearance-none pr-10 cursor-pointer"
+        aria-label="Select device"
+        className="hydro-input cursor-pointer appearance-none !pr-10"
       >
         {allLabel !== null && <option value="ALL">{allLabel}</option>}
         {list.map((d) => (
@@ -25,9 +27,9 @@ export function DeviceSelect({ devices, value, onChange, allLabel = 'All Devices
           </option>
         ))}
       </select>
-      <ChevronDown
-        size={16}
-        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+      <FaChevronDown
+        size={11}
+        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-ink-400"
       />
     </div>
   );
