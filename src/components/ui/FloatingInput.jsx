@@ -1,0 +1,96 @@
+import { useState } from 'react';
+import { FaEye, FaEyeSlash } from 'react-icons/fa6';
+
+export function FloatingInput({
+  id,
+  label,
+  type = 'text',
+  icon: Icon,
+  disabled = false,
+  error = false,
+  className = '',
+  ...rest
+}) {
+  const [show, setShow] = useState(false);
+  const isPassword = type === 'password';
+  const inputType  = isPassword ? (show ? 'text' : 'password') : type;
+
+  /* Base border + focus styling, switched when `error` is true */
+  const borderCls = error
+    ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-200'
+    : 'border-slate-200 focus:border-hydro focus:ring-2 focus:ring-hydro/20';
+
+  const iconColor = disabled
+    ? 'text-slate-300'
+    : error
+      ? 'text-red-400 peer-focus:text-red-500'
+      : 'text-slate-400 peer-focus:text-hydro';
+
+  const labelColor = disabled
+    ? 'text-slate-400'
+    : error
+      ? 'text-red-500'
+      : 'text-slate-500';
+
+  const labelFocusColor = error ? 'peer-focus:text-red-500' : 'peer-focus:text-hydro';
+
+  return (
+    <div className={`relative ${className}`}>
+      <input
+        id={id}
+        type={inputType}
+        disabled={disabled}
+        placeholder=" "
+        className={[
+          'peer w-full rounded-xl border bg-white',
+          'px-4 pt-5 pb-2 text-[15px] text-slate-900',
+          'outline-none transition-all duration-150',
+          'disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed',
+          'disabled:focus:ring-0 disabled:focus:border-slate-200',
+          borderCls,
+          Icon ? 'pl-11' : '',
+          isPassword ? 'pr-11' : '',
+        ].join(' ')}
+        {...rest}
+      />
+
+      {Icon && (
+        <Icon
+          size={15}
+          className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${iconColor}`}
+        />
+      )}
+
+      <label
+        htmlFor={id}
+        className={[
+          'pointer-events-none absolute top-1/2 -translate-y-1/2',
+          'text-sm origin-left transition-all duration-200',
+          labelColor,
+          Icon ? 'left-11' : 'left-4',
+          'peer-focus:top-2 peer-focus:translate-y-0',
+          'peer-focus:text-[11px] peer-focus:font-semibold',
+          !disabled && labelFocusColor,
+          'peer-[:not(:placeholder-shown)]:top-2',
+          'peer-[:not(:placeholder-shown)]:translate-y-0',
+          'peer-[:not(:placeholder-shown)]:text-[11px]',
+          'peer-[:not(:placeholder-shown)]:font-semibold',
+        ].join(' ')}
+      >
+        {label}
+      </label>
+
+      {isPassword && !disabled && (
+        <button
+          type="button"
+          onClick={() => setShow((s) => !s)}
+          tabIndex={-1}
+          aria-label={show ? 'Hide password' : 'Show password'}
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:text-hydro transition-colors"
+        >
+          {show ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+        </button>
+      )}
+    </div>
+  );
+}
