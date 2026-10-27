@@ -67,6 +67,7 @@ export default function ResetPassword() {
   const [params] = useSearchParams();
   const mode    = params.get('mode');
   const oobCode = params.get('oobCode');
+  const codeRef = useRef(oobCode);
 
   const [phase, setPhase]       = useState(() => initialPhase(mode, oobCode));
   const [email, setEmail]       = useState('');
@@ -77,31 +78,31 @@ export default function ResetPassword() {
   const [busy, setBusy]         = useState(false);
 
   /* ---- 1. Verify the code (does not consume it) ---- */
-  useEffect(() => {
-    const start = initialPhase(mode, oobCode);
-    if (start !== 'verifying') {
-      setPhase(start);
-      if (start === 'invalid') setReason(invalidReason(undefined));
-      return undefined;
-    }
+useEffect(() => {
+  const start = initialPhase(mode, oobCode);
+  if (start !== 'verifying') {
+    setPhase(start);
+    if (start === 'invalid') setReason(invalidReason(undefined));
+    return undefined;
+  }
 
-    let cancelled = false;
-    setPhase('verifying');
+  let cancelled = false;
+  setPhase('verifying');
 
-    verifyPasswordResetCode(auth, oobCode)
-      .then((address) => {
-        if (cancelled) return;
-        setEmail(address);
-        setPhase('ready');
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setReason(invalidReason(err));
-        setPhase('invalid');
-      });
+  verifyPasswordResetCode(auth, oobCode)
+    .then((address) => {
+      if (cancelled) return;
+      setEmail(address);
+      setPhase('ready');
+    })
+    .catch((err) => {
+      if (cancelled) return;
+      setReason(invalidReason(err));
+      setPhase('invalid');
+    });
 
-    return () => { cancelled = true; };
-  }, [mode, oobCode]);
+  return () => { cancelled = true; };
+}, [mode, oobCode]);
 
   /* ---- 2. Live password validation — identical rules to Register ---- */
   const pwChecks  = useMemo(() => evaluatePassword(pw.next), [pw.next]);
