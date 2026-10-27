@@ -3,4 +3,5 @@ node_modules/
 dispatcher.log
 service-account.json
 test-admin.mjs
-test-smptp.mjs
+test-smtp.mjs
+run.bat
