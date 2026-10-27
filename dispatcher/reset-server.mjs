@@ -13,16 +13,20 @@ const config = {
   corsOrigin:  process.env.ALLOWED_ORIGIN || process.env.APP_URL || 'http://localhost:5173',
   saPath:      process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
 
-  smtpHost:    process.env.SMTP_HOST,
+  // SMTP — prefer EMAIL_USER / EMAIL_PASS per spec, fall back to legacy names
+  smtpHost:    process.env.SMTP_HOST || 'smtp.gmail.com',
   smtpPort:    Number(process.env.SMTP_PORT || 587),
   smtpSecure:  (process.env.SMTP_SECURE || 'tls').toLowerCase() === 'ssl',
-  smtpUser:    process.env.SMTP_USER,
-  smtpPass:    process.env.SMTP_PASS,
-  fromEmail:   process.env.FROM_EMAIL,
+  emailUser:   process.env.EMAIL_USER || process.env.SMTP_USER,
+  emailPass:   process.env.EMAIL_PASS || process.env.SMTP_PASS,
+
+  fromEmail:   process.env.FROM_EMAIL || process.env.EMAIL_USER || process.env.SMTP_USER,
   fromName:    process.env.FROM_NAME || 'HydroTrack',
 };
 
-for (const key of ['saPath', 'smtpHost', 'smtpUser', 'smtpPass', 'fromEmail']) {
+/* ---- Fail-fast: never start with a missing/placeholder secret ---- */
+const REQUIRED = ['saPath', 'emailUser', 'emailPass', 'fromEmail'];
+for (const key of REQUIRED) {
   const v = config[key];
   if (!v || String(v).startsWith('your-') || String(v).startsWith('paste-')) {
     console.error(`[config] missing or placeholder value for '${key}' (check .env)`);
@@ -40,7 +44,7 @@ const transporter = nodemailer.createTransport({
   host: config.smtpHost,
   port: config.smtpPort,
   secure: config.smtpSecure,
-  auth: { user: config.smtpUser, pass: config.smtpPass },
+  auth: { user: config.emailUser, pass: config.emailPass },
   connectionTimeout: 15000,
   greetingTimeout:   10000,
   socketTimeout:     20000,
@@ -96,7 +100,7 @@ If you didn't request this, you can safely ignore this email.
 
 /* ---------------------------- rate limiting -------------------------- */
 const WINDOW_MS = 15 * 60 * 1000;
-const hits = new Map(); // key -> [timestamps]
+const hits = new Map();
 
 function tooMany(key, max) {
   const now = Date.now();
@@ -114,18 +118,23 @@ setInterval(() => {
   }
 }, WINDOW_MS).unref();
 
-/* ----------------------------- core logic ---------------------------- */
+/* ============================================================
+   CORE LOGIC — generate link via Admin SDK + send via Nodemailer
+   ============================================================ */
 async function sendResetEmail(email) {
   try {
-    // Throws auth/user-not-found for unknown emails — swallowed below.
+    /* -------- 1. Generate the raw Firebase link -------- 
+       We do NOT pass actionCodeSettings here. We just want the oobCode. */
     const link = await adminAuth.generatePasswordResetLink(email);
+    
+    /* -------- 2. Extract the oobCode -------- */
     const oobCode = new URL(link).searchParams.get('oobCode');
     if (!oobCode) throw new Error('oobCode missing from generated link');
 
-    // Point the user straight at the local React route.
-    const resetUrl =
-      `${config.appUrl}/reset-password?mode=resetPassword&oobCode=${encodeURIComponent(oobCode)}`;
+    /* -------- 3. Build the direct link to YOUR React app -------- */
+    const resetUrl = `${config.appUrl}/reset-password?mode=resetPassword&oobCode=${encodeURIComponent(oobCode)}`;
 
+    /* -------- 4. Send the email via Gmail SMTP -------- */
     await transporter.sendMail({
       from:    `"${config.fromName}" <${config.fromEmail}>`,
       to:      email,
@@ -133,13 +142,21 @@ async function sendResetEmail(email) {
       text:    buildResetText(resetUrl),
       html:    buildResetHtml(resetUrl),
     });
-    console.log(`[reset] email sent to ${email}`);
+
+    console.log(`[reset] email sent to ${email} with direct URL`);
+    return { ok: true };
   } catch (err) {
+    /* Never leak account existence — but DO log for ops. */
     if (err?.code === 'auth/user-not-found') {
       console.log('[reset] no account for requested email (silently ignored)');
-    } else {
-      console.error('[reset] failed:', err?.code || err?.message || err);
+      return { ok: true, ignored: true };
     }
+    if (err?.code === 'auth/invalid-email') {
+      console.warn('[reset] rejected: invalid-email');
+      return { ok: false, error: 'invalid_email' };
+    }
+    console.error('[reset] failed:', err?.code || err?.message || err);
+    return { ok: false, error: 'send_failed' };
   }
 }
 
@@ -172,37 +189,51 @@ function readBody(req, limit = 2048) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/* Structured responses so the frontend can branch on them. */
+const RESP = {
+  OK:           { status: 200, body: { ok: true,  message: 'If an account exists, a reset email has been sent.' } },
+  INVALID:      { status: 400, body: { ok: false, error: 'invalid_email',  message: 'Please enter a valid email address.' } },
+  RATE_LIMITED: { status: 429, body: { ok: false, error: 'rate_limited',   message: 'Too many requests. Please try again in 15 minutes.' } },
+  BAD_BODY:     { status: 400, body: { ok: false, error: 'bad_request',    message: 'Malformed request body.' } },
+};
+
 const server = http.createServer(async (req, res) => {
   cors(res);
-
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
   if (req.method !== 'POST' || req.url !== '/api/password-reset') {
-    return json(res, 404, { ok: false });
+    return json(res, 404, { ok: false, error: 'not_found' });
   }
 
+  let email;
   try {
     const ip = req.socket.remoteAddress || 'unknown';
     const raw = await readBody(req);
-    const { email } = JSON.parse(raw || '{}');
-    const clean = String(email || '').trim().toLowerCase();
+    let parsed;
+    try { parsed = JSON.parse(raw || '{}'); }
+    catch { return json(res, RESP.BAD_BODY.status, RESP.BAD_BODY.body); }
 
-    if (!EMAIL_RE.test(clean) || clean.length > 254) {
-      return json(res, 400, { ok: false });
+    email = String(parsed.email || '').trim().toLowerCase();
+
+    if (!EMAIL_RE.test(email) || email.length > 254) {
+      return json(res, RESP.INVALID.status, RESP.INVALID.body);
     }
-    if (tooMany(`ip:${ip}`, 10) || tooMany(`email:${clean}`, 3)) {
-      return json(res, 429, { ok: false });
+    if (tooMany(`ip:${ip}`, 10) || tooMany(`email:${email}`, 3)) {
+      return json(res, RESP.RATE_LIMITED.status, RESP.RATE_LIMITED.body);
     }
 
-    // Respond immediately with the same body regardless of outcome,
-    // then do the work in the background (no timing/enumeration leak).
-    json(res, 200, { ok: true });
-    sendResetEmail(clean);
-  } catch {
-    if (!res.headersSent) json(res, 400, { ok: false });
+    /* Respond immediately — hide timing so account existence can't be probed. */
+    json(res, RESP.OK.status, RESP.OK.body);
+
+    /* Fire-and-forget: send in the background; failures are logged. */
+    sendResetEmail(email).catch((e) => console.error('[reset] unhandled:', e));
+  } catch (err) {
+    if (!res.headersSent) json(res, 400, { ok: false, error: 'bad_request' });
+    console.error('[reset] handler error:', err?.message || err);
   }
 });
 
+/* ------------------------------- boot -------------------------------- */
 try {
   await transporter.verify();
   console.log(`[smtp] connected to ${config.smtpHost}:${config.smtpPort}`);
@@ -211,6 +242,6 @@ try {
   process.exit(1);
 }
 
-server.listen(config.port, '127.0.0.1', () => {
+server.listen(config.port, '0.0.0.0', () => {
   console.log(`[reset-server] listening on http://localhost:${config.port}`);
 });

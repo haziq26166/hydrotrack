@@ -1,5 +1,5 @@
 // File: src/pages/ResetPassword.jsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   FaEnvelope, FaLock, FaKey, FaCircleCheck, FaLinkSlash, FaArrowRight,
