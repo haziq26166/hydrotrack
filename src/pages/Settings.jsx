@@ -1,8 +1,8 @@
+// File: src/pages/Settings.jsx
 import { useEffect, useState } from 'react';
 import {
   FaGear, FaFloppyDisk, FaBell, FaMicrochip,
-  FaBolt, FaMoon, FaTriangleExclamation, FaSliders,
-  FaPencil, FaWater,
+  FaBolt, FaMoon, FaSliders, FaPencil, FaWater,
 } from 'react-icons/fa6';
 import { database, ref, onValue, update, get } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
@@ -11,6 +11,8 @@ import { TopBar } from '@/components/layout/TopBar';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { FloatingInput } from '@/components/ui/FloatingInput';
+import { Notice } from '@/components/ui/Notice';
+import { SwitchRow } from '@/components/ui/Switch';
 import { DeviceSelect } from '@/components/devices/DeviceSelect';
 import { Toast } from '@/components/ui/Toast';
 
@@ -80,6 +82,23 @@ export default function Settings() {
 
   const setField = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
 
+  async function toggleEmail(v) {
+    const previous = emailNotif;
+    setEmailNotif(v);
+    try {
+      await update(ref(database, `users/${user.uid}/settings`), {
+        email_notifications: v,
+      });
+      setToast({
+        type: 'success',
+        message: `Email notifications ${v ? 'enabled' : 'disabled'}.`,
+      });
+    } catch (err) {
+      setEmailNotif(previous);
+      setToast({ type: 'error', message: 'Could not update notification preference.' });
+    }
+  }
+
   async function handleSave(e) {
     e.preventDefault();
     if (!deviceId) return;
@@ -122,7 +141,7 @@ export default function Settings() {
 
   return (
     <>
-      <TopBar title="Settings" icon={FaGear} />
+      <TopBar title="Settings" icon={FaGear} subtitle="Notifications, calibration and alert rules" />
 
       <div className="space-y-5">
 
@@ -130,24 +149,15 @@ export default function Settings() {
         <GlassCard>
           <SectionHeader
             icon={FaBell}
-            title="Global Notification Preferences"
+            title="Global notification preferences"
             subtitle="Manage how HydroTrack sends real-time system alerts to your account."
           />
-          <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-            <ToggleRow
-              title="Receive Email Notifications"
+          <div className="mt-5 rounded-2xl border border-white/70 bg-white/40 p-4">
+            <SwitchRow
+              title="Receive email notifications"
               description="Send email when continuous leaks or high flow spikes are detected."
               checked={emailNotif}
-              onChange={async (v) => {
-                setEmailNotif(v);
-                await update(ref(database, `users/${user.uid}/settings`), {
-                  email_notifications: v,
-                });
-                setToast({
-                  type: 'success',
-                  message: `Email notifications ${v ? 'enabled' : 'disabled'}.`,
-                });
-              }}
+              onChange={toggleEmail}
             />
           </div>
         </GlassCard>
@@ -156,14 +166,14 @@ export default function Settings() {
         <GlassCard>
           <SectionHeader
             icon={FaMicrochip}
-            title="Device Calibration & Alert Triggers"
+            title="Device calibration & alert triggers"
             subtitle="Configure pulse sensors and leak thresholds per hardware unit."
             action={
               hasDevices && !editMode && (
                 <GlassButton
                   variant="ghost"
                   size="sm"
-                  leftIcon={<FaPencil size={12} />}
+                  leftIcon={<FaPencil size={11} />}
                   onClick={() => setEditMode(true)}
                 >
                   Edit
@@ -173,52 +183,47 @@ export default function Settings() {
           />
 
           {!hasDevices ? (
-            <div className="mt-6 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-10 text-center">
-              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white text-slate-300 shadow-sm">
-                <FaMicrochip size={22} />
+            <div className="mt-6 rounded-2xl border border-dashed border-ink-200 bg-white/30 p-10 text-center">
+              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white text-ink-300 shadow-glass-sm">
+                <FaMicrochip size={20} />
               </span>
-              <p className="mt-4 text-sm font-semibold text-slate-700">No devices registered</p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-4 text-sm font-bold text-ink-800">No devices registered</p>
+              <p className="mt-1 text-xs text-ink-500">
                 Link a device first to configure its calibration and alert rules.
               </p>
             </div>
           ) : (
             <form onSubmit={handleSave}>
               <div className="mt-5">
-                <label className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                  Select Device
-                </label>
+                <label className="kpi-label mb-2 block">Select device</label>
                 <DeviceSelect devices={devices} value={deviceId} onChange={setDeviceId} allLabel={null} />
               </div>
 
               {/* ---- Master Control ---- */}
               <FormSection>
-                <SubSectionHeader icon={FaSliders} title="Master Control" />
-                <ToggleRow
-                  title="Enable System Alerts for Device"
+                <SubSectionHeader icon={FaSliders} title="Master control" />
+                <SwitchRow
+                  title="Enable system alerts for device"
                   description="Temporarily pause alert monitoring during maintenance or testing."
                   checked={form.alerts_enabled}
                   onChange={setField('alerts_enabled')}
                   disabled={!editMode}
                 />
                 {!form.alerts_enabled && (
-                  <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
-                    <FaTriangleExclamation className="mt-0.5 shrink-0" size={12} />
-                    <span>
-                      Alert monitoring is currently disabled. The device will keep recording flow
-                      data, but no alerts will be triggered until you re-enable this.
-                    </span>
-                  </div>
+                  <Notice tone="warning" className="mt-3 !text-xs">
+                    Alert monitoring is currently disabled. The device will keep recording flow
+                    data, but no alerts will be triggered until you re-enable this.
+                  </Notice>
                 )}
               </FormSection>
 
               {/* ---- Alert Triggers ---- */}
               <FormSection>
-                <SubSectionHeader icon={FaBolt} title="Alert Triggers" />
+                <SubSectionHeader icon={FaBolt} title="Alert triggers" />
                 <div className="grid gap-4 md:grid-cols-2">
                   <NumberField
                     id="setting-calibration"
-                    label="Calibration Factor (Hz/LPM)"
+                    label="Calibration factor (Hz/LPM)"
                     hint="YF-S401 default = 98.0"
                     step="0.1" min="1"
                     value={form.calibration_factor}
@@ -227,7 +232,7 @@ export default function Settings() {
                   />
                   <NumberField
                     id="setting-max-flow"
-                    label="High Flow Threshold (LPM)"
+                    label="High flow threshold (LPM)"
                     hint="Alert when instant flow exceeds this"
                     step="0.5" min="0"
                     value={form.max_flow_threshold}
@@ -238,7 +243,7 @@ export default function Settings() {
                 <div className="mt-4">
                   <NumberField
                     id="setting-max-continuous"
-                    label="Max Continuous Flow (minutes)"
+                    label="Max continuous flow (minutes)"
                     hint="Alert if water runs continuously longer than this duration."
                     step="1" min="1"
                     value={form.max_continuous_minutes}
@@ -250,9 +255,9 @@ export default function Settings() {
 
               {/* ---- Off-Hours ---- */}
               <FormSection>
-                <SubSectionHeader icon={FaMoon} title="Off-Hours Flow Alerts" />
-                <ToggleRow
-                  title="Enable Off-Hours Detection"
+                <SubSectionHeader icon={FaMoon} title="Off-hours flow alerts" />
+                <SwitchRow
+                  title="Enable off-hours detection"
                   description="Alert when water flows during a configurable quiet window (e.g., overnight)."
                   checked={form.off_hours_alerts_enabled}
                   onChange={setField('off_hours_alerts_enabled')}
@@ -261,7 +266,7 @@ export default function Settings() {
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <TimeField
                     id="setting-off-hours-start"
-                    label="Quiet Window Start"
+                    label="Quiet window start"
                     hint="Beginning of the no-flow period."
                     value={form.off_hours_start}
                     onChange={setField('off_hours_start')}
@@ -269,7 +274,7 @@ export default function Settings() {
                   />
                   <TimeField
                     id="setting-off-hours-end"
-                    label="Quiet Window End"
+                    label="Quiet window end"
                     hint="May cross midnight (22:00 → 06:00)."
                     value={form.off_hours_end}
                     onChange={setField('off_hours_end')}
@@ -279,7 +284,7 @@ export default function Settings() {
                 <div className="mt-4">
                   <NumberField
                     id="setting-grace"
-                    label="Minimum Flow Duration (seconds)"
+                    label="Minimum flow duration (seconds)"
                     hint="Ignore brief off-hours usage (a single flush). Alert only after this many seconds of sustained flow."
                     step="1" min="5"
                     value={form.off_hours_min_duration_seconds}
@@ -291,9 +296,9 @@ export default function Settings() {
 
               {/* ---- Water Hammer ---- */}
               <FormSection>
-                <SubSectionHeader icon={FaWater} title="Water Hammer Detection" />
-                <ToggleRow
-                  title="Enable Water Hammer Detection"
+                <SubSectionHeader icon={FaWater} title="Water hammer detection" />
+                <SwitchRow
+                  title="Enable water hammer detection"
                   description="Alert when a sharp, brief flow spike is detected — typically caused by a valve closing too quickly."
                   checked={form.hammer_alerts_enabled}
                   onChange={setField('hammer_alerts_enabled')}
@@ -302,7 +307,7 @@ export default function Settings() {
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <NumberField
                     id="setting-hammer-threshold"
-                    label="Spike Threshold (LPM)"
+                    label="Spike threshold (LPM)"
                     hint="Raw flow must exceed this for 1–3 seconds. Default 60.0."
                     step="1" min="10"
                     value={form.hammer_threshold_lpm}
@@ -311,7 +316,7 @@ export default function Settings() {
                   />
                   <NumberField
                     id="setting-hammer-cooldown"
-                    label="Alert Cooldown (seconds)"
+                    label="Alert cooldown (seconds)"
                     hint="Minimum gap between hammer alerts to avoid burst notifications."
                     step="1" min="5"
                     value={form.hammer_cooldown_seconds}
@@ -319,33 +324,25 @@ export default function Settings() {
                     disabled={!editMode}
                   />
                 </div>
-                <div className="mt-3 flex items-start gap-2 rounded-xl border border-sky-100 bg-sky-50/70 px-3.5 py-2.5 text-xs text-sky-800">
-                  <FaWater className="mt-0.5 shrink-0" size={12} />
-                  <span>
-                    Water hammer is a brief pressure surge when a valve closes suddenly. If
-                    you hear a bang or knock in your pipes, this rule catches the spike even
-                    if the leak detector does not trigger.
-                  </span>
-                </div>
+                <Notice tone="info" className="mt-4 !text-xs">
+                  Water hammer is a brief pressure surge when a valve closes suddenly. If
+                  you hear a bang or knock in your pipes, this rule catches the spike even
+                  if the leak detector does not trigger.
+                </Notice>
               </FormSection>
 
               {/* ---- Actions ---- */}
               {editMode && (
-                <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-5">
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    disabled={saving}
-                    className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-600 transition-colors duration-150 hover:text-hydro disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
+                <div className="mt-6 flex justify-end gap-3 border-t border-white/70 pt-5">
+                  <GlassButton variant="ghost" onClick={cancelEdit} disabled={saving}>
                     Cancel
-                  </button>
+                  </GlassButton>
                   <GlassButton
                     type="submit"
                     loading={saving}
-                    leftIcon={<FaFloppyDisk size={14} />}
+                    leftIcon={<FaFloppyDisk size={13} />}
                   >
-                    {saving ? 'Saving…' : 'Save Settings'}
+                    {saving ? 'Saving…' : 'Save settings'}
                   </GlassButton>
                 </div>
               )}
@@ -367,12 +364,12 @@ function SectionHeader({ icon: Icon, title, subtitle, action }) {
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-hydro/10 text-hydro">
-          <Icon size={17} />
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-hydro-50 text-hydro">
+          <Icon size={15} />
         </span>
         <div className="min-w-0">
-          <h3 className="text-base font-bold text-slate-800">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+          <h3 className="section-title">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-xs leading-relaxed text-ink-500">{subtitle}</p>}
         </div>
       </div>
       {action}
@@ -384,57 +381,13 @@ function SubSectionHeader({ icon: Icon, title }) {
   return (
     <div className="mb-4 flex items-center gap-2">
       <Icon size={12} className="text-hydro" />
-      <h4 className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-        {title}
-      </h4>
+      <h4 className="kpi-label">{title}</h4>
     </div>
   );
 }
 
 function FormSection({ children }) {
-  return <div className="mt-6 border-t border-slate-100 pt-6">{children}</div>;
-}
-
-function ToggleRow({ title, description, checked, onChange, disabled = false }) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <p className={`text-sm font-medium ${disabled ? 'text-slate-500' : 'text-slate-700'}`}>
-          {title}
-        </p>
-        {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
-      </div>
-      <Toggle checked={checked} onChange={onChange} disabled={disabled} />
-    </div>
-  );
-}
-
-function Toggle({ checked, onChange, disabled = false }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => !disabled && onChange(!checked)}
-      className={[
-        'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full',
-        'transition-colors duration-200',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-hydro/50',
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
-        checked ? 'bg-hydro' : 'bg-slate-300',
-      ].join(' ')}
-    >
-      <span
-        className={[
-          'absolute top-0.5 left-0.5',
-          'h-5 w-5 rounded-full bg-white shadow-md',
-          'transition-transform duration-200 ease-out',
-          checked ? 'translate-x-5' : 'translate-x-0',
-        ].join(' ')}
-      />
-    </button>
-  );
+  return <div className="mt-6 border-t border-white/70 pt-6">{children}</div>;
 }
 
 function NumberField({ id, label, hint, value, onChange, disabled, ...rest }) {
@@ -449,7 +402,7 @@ function NumberField({ id, label, hint, value, onChange, disabled, ...rest }) {
         disabled={disabled}
         {...rest}
       />
-      {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs text-ink-500">{hint}</p>}
     </div>
   );
 }
@@ -465,7 +418,7 @@ function TimeField({ id, label, hint, value, onChange, disabled }) {
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
       />
-      {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs text-ink-500">{hint}</p>}
     </div>
   );
 }

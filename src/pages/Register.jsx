@@ -1,17 +1,18 @@
+// File: src/pages/Register.jsx
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  FaEnvelope, FaLock, FaUser, FaUserPlus,
-  FaTriangleExclamation, FaGoogle,
-} from 'react-icons/fa6';
+import { FaEnvelope, FaLock, FaUser, FaUserPlus } from 'react-icons/fa6';
+import { FcGoogle } from 'react-icons/fc';
 import {
   auth, database, ref, set, get,
   createUserWithEmailAndPassword, updateProfile,
   googleProvider, signInWithPopup,
 } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { AuthShell, authLinkCls } from '@/components/layout/AuthShell';
 import { FloatingInput } from '@/components/ui/FloatingInput';
 import { GlassButton } from '@/components/ui/GlassButton';
+import { Notice, FieldError } from '@/components/ui/Notice';
 import {
   PasswordStrength, evaluatePassword, passwordScore, isPasswordValid,
 } from '@/components/ui/PasswordStrength';
@@ -72,7 +73,7 @@ export default function Register() {
 
   useEffect(() => { if (user) navigate('/dashboard', { replace: true }); }, [user, navigate]);
 
-  const update = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const update = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   /* ============================================================
      REAL-TIME VALIDATION STATE
@@ -146,158 +147,133 @@ export default function Register() {
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] place-items-center px-4 py-12">
-      <div className="w-full max-w-sm">
+    <AuthShell
+      title="Create your account"
+      subtitle="Start monitoring in under two minutes."
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link to="/login" className={authLinkCls}>Sign in</Link>
+        </>
+      }
+    >
+      <form
+        onSubmit={handleSubmit}
+        autoComplete="off"
+        noValidate
+        className="space-y-4"
+      >
+        {error && <Notice tone="error">{error}</Notice>}
 
-        <div className="mb-10">
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-            Create account
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Start monitoring in under two minutes.
-          </p>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
+        {/* ---------- Full Name ---------- */}
+        <FloatingInput
+          id="reg-full-name"
+          label="Full name"
+          icon={FaUser}
+          required
           autoComplete="off"
-          noValidate
-          className="space-y-4"
-        >
-          {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/70 px-3.5 py-2.5 text-sm text-red-700">
-              <FaTriangleExclamation className="mt-0.5 shrink-0" size={13} />
-              <span>{error}</span>
-            </div>
-          )}
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="words"
+          value={form.fullName}
+          onChange={update('fullName')}
+          minLength={2}
+          maxLength={60}
+        />
 
-          {/* ---------- Full Name ---------- */}
+        {/* ---------- Email ---------- */}
+        <div>
           <FloatingInput
-            id="reg-full-name"
-            label="Full name"
-            icon={FaUser}
+            id="reg-email"
+            label="Email"
+            type="email"
+            icon={FaEnvelope}
             required
             autoComplete="off"
             spellCheck={false}
             autoCorrect="off"
-            autoCapitalize="words"
-            value={form.fullName}
-            onChange={update('fullName')}
-            minLength={2}
-            maxLength={60}
+            autoCapitalize="off"
+            value={form.email}
+            onChange={update('email')}
+            onBlur={() => setEmailTouched(true)}
+            error={Boolean(emailError)}
           />
+          {emailError && <FieldError>{emailError}</FieldError>}
+        </div>
 
-          {/* ---------- Email ---------- */}
-          <div>
-            <FloatingInput
-              id="reg-email"
-              label="Email"
-              type="email"
-              icon={FaEnvelope}
-              required
-              autoComplete="off"
-              spellCheck={false}
-              autoCorrect="off"
-              autoCapitalize="off"
-              value={form.email}
-              onChange={update('email')}
-              onBlur={() => setEmailTouched(true)}
-              error={Boolean(emailError)}
-            />
-            {emailError && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-600">
-                <FaTriangleExclamation size={10} />
-                {emailError}
-              </p>
-            )}
-          </div>
+        {/* ---------- Password ---------- */}
+        <div>
+          <FloatingInput
+            id="reg-password"
+            label="Password"
+            type="password"
+            icon={FaLock}
+            required
+            autoComplete="new-password"
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
+            value={form.password}
+            onChange={update('password')}
+            onFocus={() => setPwFocused(true)}
+            onBlur={() => setPwFocused(false)}
+          />
+          {showStrength && (
+            <div className="mt-2 animate-fade-in">
+              <PasswordStrength checks={pwChecks} score={pwScore} />
+            </div>
+          )}
+        </div>
 
-          {/* ---------- Password ---------- */}
-          <div>
-            <FloatingInput
-              id="reg-password"
-              label="Password"
-              type="password"
-              icon={FaLock}
-              required
-              autoComplete="new-password"
-              spellCheck={false}
-              autoCorrect="off"
-              autoCapitalize="off"
-              value={form.password}
-              onChange={update('password')}
-              onFocus={() => setPwFocused(true)}
-              onBlur={() => setPwFocused(false)}
-            />
-            {showStrength && (
-              <div className="mt-2">
-                <PasswordStrength checks={pwChecks} score={pwScore} />
-              </div>
-            )}
-          </div>
+        {/* ---------- Confirm Password ---------- */}
+        <div>
+          <FloatingInput
+            id="reg-confirm"
+            label="Confirm password"
+            type="password"
+            icon={FaLock}
+            required
+            autoComplete="new-password"
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
+            value={form.confirm}
+            onChange={update('confirm')}
+            error={Boolean(confirmError)}
+          />
+          {confirmError && <FieldError>{confirmError}</FieldError>}
+        </div>
 
-          {/* ---------- Confirm Password ---------- */}
-          <div>
-            <FloatingInput
-              id="reg-confirm"
-              label="Confirm password"
-              type="password"
-              icon={FaLock}
-              required
-              autoComplete="new-password"
-              spellCheck={false}
-              autoCorrect="off"
-              autoCapitalize="off"
-              value={form.confirm}
-              onChange={update('confirm')}
-              error={Boolean(confirmError)}
-            />
-            {confirmError && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-600">
-                <FaTriangleExclamation size={10} />
-                {confirmError}
-              </p>
-            )}
-          </div>
+        {/* ---------- Submit ---------- */}
+        <GlassButton
+          type="submit"
+          loading={busy}
+          disabled={!canSubmit || googleBusy}
+          leftIcon={<FaUserPlus size={14} />}
+          fullWidth
+        >
+          {busy ? 'Creating account…' : 'Sign Up'}
+        </GlassButton>
 
-          {/* ---------- Submit ---------- */}
-          <GlassButton
-            type="submit"
-            loading={busy}
-            disabled={!canSubmit || googleBusy}
-            leftIcon={<FaUserPlus size={14} />}
-            fullWidth
-          >
-            {busy ? 'Creating account…' : 'Sign Up'}
-          </GlassButton>
+        {/* ---------- Divider ---------- */}
+        <div className="flex items-center gap-4 py-1">
+          <div className="h-px flex-1 bg-ink-200/70" />
+          <span className="text-xs font-semibold text-ink-400">or</span>
+          <div className="h-px flex-1 bg-ink-200/70" />
+        </div>
 
-          {/* ---------- Divider ---------- */}
-          <div className="flex items-center gap-4 pt-1">
-            <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-medium text-slate-400">or</span>
-            <div className="h-px flex-1 bg-slate-200" />
-          </div>
-
-          {/* ---------- Google ---------- */}
-          <GlassButton
-            type="button"
-            variant="google"
-            disabled={busy || googleBusy}
-            leftIcon={<FaGoogle className="text-red-500" size={15} />}
-            onClick={handleGoogle}
-            fullWidth
-          >
-            {googleBusy ? 'Signing up…' : 'Continue with Google'}
-          </GlassButton>
-
-          <p className="pt-2 text-center text-sm text-slate-500">
-            Already have an account?{' '}
-            <Link to="/login" className="font-semibold text-hydro hover:text-hydro-light transition">
-              Sign in
-            </Link>
-          </p>
-        </form>
-      </div>
-    </div>
+        {/* ---------- Google ---------- */}
+        <GlassButton
+          type="button"
+          variant="google"
+          disabled={busy || googleBusy}
+          leftIcon={<FcGoogle size={18} />}
+          onClick={handleGoogle}
+          fullWidth
+        >
+          {googleBusy ? 'Signing up…' : 'Continue with Google'}
+        </GlassButton>
+      </form>
+    </AuthShell>
   );
 }

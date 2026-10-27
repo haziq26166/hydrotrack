@@ -1,3 +1,4 @@
+// File: src/pages/History.jsx
 import { useEffect, useMemo, useState } from 'react';
 import {
   FaChartColumn, FaDroplet, FaChartSimple, FaArrowTrendUp,
@@ -11,9 +12,23 @@ import { useAuth } from '@/context/AuthContext';
 import { useDevices } from '@/hooks/useDevices';
 import { TopBar } from '@/components/layout/TopBar';
 import { GlassCard } from '@/components/ui/GlassCard';
+import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { DeviceSelect } from '@/components/devices/DeviceSelect';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
+/* Chart.js draws on <canvas>, so it can't inherit CSS — set the font here. */
+ChartJS.defaults.font.family = '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif';
+
+/* Palette (mirrors tailwind.config.js) */
+const BAR      = 'rgba(10, 127, 139, 0.72)';   /* hydro-500 */
+const BAR_HOVER = '#0A7F8B';
+const BAR_NOW  = '#22B8CF';                     /* aqua-500 — current day / month */
+const TICK     = '#8CA2B8';                     /* ink-400 */
+const GRID     = 'rgba(181, 196, 211, 0.35)';   /* ink-300 @ 35% */
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 export default function History() {
   const { user } = useAuth();
@@ -37,7 +52,7 @@ export default function History() {
     return () => unsubs.forEach((u) => u());
   }, [devices, user.uid]);
 
-  const { labels, values, stats, title, subtitle } = useMemo(() => {
+  const { labels, values, stats, title, subtitle, nowIndex } = useMemo(() => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
@@ -47,7 +62,7 @@ export default function History() {
       ids.reduce((s, id) =>
         s + Number(historyByDevice[id]?.[dateStr]?.total_volume || 0), 0);
 
-    let labels = [], values = [];
+    let labels = [], values = [], nowIndex = -1;
 
     if (viewMode === 'daily') {
       const days = new Date(year, month + 1, 0).getDate();
@@ -56,8 +71,8 @@ export default function History() {
         labels.push(`${d}`);
         values.push(sumForDate(ds));
       }
+      nowIndex = now.getDate() - 1;
     } else {
-      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       for (let m = 0; m < 12; m++) {
         const prefix = `${year}-${String(m + 1).padStart(2, '0')}`;
         let total = 0;
@@ -67,9 +82,10 @@ export default function History() {
             if (k.startsWith(prefix)) total += Number(hist[k]?.total_volume || 0);
           });
         });
-        labels.push(monthNames[m]);
+        labels.push(MONTHS[m]);
         values.push(total);
       }
+      nowIndex = month;
     }
 
     const total = values.reduce((s, v) => s + v, 0);
@@ -84,21 +100,22 @@ export default function History() {
       ? 'Daily consumption breakdown'
       : 'Monthly consumption totals';
 
-    return { labels, values, title, subtitle, stats: { total, avg, peak, activeCount } };
+    return { labels, values, title, subtitle, nowIndex, stats: { total, avg, peak, activeCount } };
   }, [historyByDevice, devices, deviceFilter, viewMode]);
 
   const hasAnyData = stats.total > 0;
+  const unitLabel = viewMode === 'daily' ? 'day' : 'month';
 
   const chartData = {
     labels,
     datasets: [{
       label: 'Liters',
       data: values,
-      backgroundColor: 'rgba(11, 61, 145, 0.65)',
-      borderColor: 'rgba(11, 61, 145, 1)',
-      borderWidth: 1,
-      borderRadius: 6,
-      hoverBackgroundColor: 'rgba(11, 61, 145, 1)',
+      backgroundColor: values.map((_, i) => (i === nowIndex ? BAR_NOW : BAR)),
+      hoverBackgroundColor: values.map((_, i) => (i === nowIndex ? BAR_NOW : BAR_HOVER)),
+      borderWidth: 0,
+      borderRadius: 8,
+      borderSkipped: false,
     }],
   };
 
@@ -109,29 +126,32 @@ export default function History() {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        padding: 10,
-        cornerRadius: 8,
-        titleFont: { size: 12, weight: '600' },
+        backgroundColor: 'rgba(11, 42, 74, 0.95)',
+        padding: 12,
+        cornerRadius: 12,
+        displayColors: false,
+        titleFont: { size: 12, weight: '700' },
         bodyFont: { size: 12 },
         callbacks: {
-          label: (c) => `  ${c.parsed.y.toFixed(1)} Liters`,
+          label: (c) => `${c.parsed.y.toFixed(1)} Liters`,
         },
       },
     },
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: '#94A3B8', font: { size: 11 } },
+        border: { display: false },
+        ticks: { color: TICK, font: { size: 11 } },
       },
       y: {
         beginAtZero: true,
-        grid: { color: 'rgba(226, 232, 240, 0.6)' },
-        ticks: { color: '#94A3B8', font: { size: 11 } },
+        border: { display: false },
+        grid: { color: GRID },
+        ticks: { color: TICK, font: { size: 11 } },
         title: {
           display: true,
           text: 'Liters (L)',
-          color: '#94A3B8',
+          color: TICK,
           font: { size: 11, weight: '600' },
         },
       },
@@ -140,13 +160,13 @@ export default function History() {
 
   return (
     <>
-      <TopBar title="Usage History" icon={FaChartColumn} />
+      <TopBar title="Usage History" icon={FaChartColumn} subtitle={`${title} · ${subtitle}`} />
 
       {/* ============================================================
           TOOLBAR
           ============================================================ */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <DeviceSelect
             devices={devices}
             value={deviceFilter}
@@ -154,82 +174,72 @@ export default function History() {
           />
         </div>
 
-        <div className="ml-auto flex rounded-xl border border-slate-200 bg-white p-1 shadow-glass">
-          {['daily', 'monthly'].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={[
-                'rounded-lg px-4 py-1.5 text-sm font-semibold transition',
-                viewMode === mode
-                  ? 'bg-hydro text-white shadow-hydro'
-                  : 'text-slate-500 hover:text-hydro',
-              ].join(' ')}
-            >
-              {mode === 'daily' ? 'Daily' : 'Monthly'}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          className="ml-auto"
+          label="Time range"
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { id: 'daily',   label: 'Daily' },
+            { id: 'monthly', label: 'Monthly' },
+          ]}
+        />
       </div>
 
       {/* ============================================================
           STAT ROW
           ============================================================ */}
-      <div className="mb-5 grid gap-4 md:grid-cols-3">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
         <StatCard
-          label="Total Consumption"
-          value={stats.total.toFixed(1)}
+          label="Total consumption"
+          value={stats.total}
           unit="L"
           sub="Selected period"
           Icon={FaDroplet}
           tone="hydro"
         />
         <StatCard
-          label="Daily Average"
-          value={stats.avg.toFixed(1)}
+          label={`Average per ${unitLabel}`}
+          value={stats.avg}
           unit="L"
-          sub={`Across ${stats.activeCount} active day${stats.activeCount !== 1 ? 's' : ''}`}
+          sub={`Across ${stats.activeCount} active ${unitLabel}${stats.activeCount !== 1 ? 's' : ''}`}
           Icon={FaChartSimple}
           tone="aqua"
         />
         <StatCard
-          label="Peak Usage"
-          value={stats.peak.toFixed(1)}
+          label="Peak usage"
+          value={stats.peak}
           unit="L"
-          sub="Highest single period"
+          sub={`Highest single ${unitLabel}`}
           Icon={FaArrowTrendUp}
-          tone="amber"
+          tone="sand"
         />
       </div>
 
       {/* ============================================================
           CHART
           ============================================================ */}
-      <GlassCard>
+      <GlassCard padded="md" className="sm:!p-6">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-base font-bold text-slate-800">{title}</h3>
-            <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+            <h2 className="section-title">{title}</h2>
+            <p className="mt-0.5 text-xs text-ink-500">{subtitle}</p>
           </div>
-          <span className="shrink-0 rounded-full bg-hydro-100 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-hydro-700">
-            Liters (L)
-          </span>
+          <span className="chip chip-info shrink-0">Liters (L)</span>
         </div>
 
         {!hasAnyData ? (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 py-16 text-center">
-            <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white text-slate-300 shadow-sm">
-              <FaChartColumn size={22} />
+          <div className="rounded-2xl border border-dashed border-ink-200 bg-white/30 py-16 text-center">
+            <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white text-ink-300 shadow-glass-sm">
+              <FaChartColumn size={20} />
             </span>
-            <p className="mt-3 text-sm font-semibold text-slate-700">
-              No data for this period
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-3 text-sm font-bold text-ink-800">No data for this period</p>
+            <p className="mt-1 text-xs text-ink-500">
               Data will appear once the sensor starts reporting.
             </p>
           </div>
         ) : (
-          <div className="h-80">
+          <div className="h-72 sm:h-80" role="img" aria-label={`Bar chart of water usage in litres, ${viewMode}`}>
             <Bar data={chartData} options={chartOptions} />
           </div>
         )}
@@ -242,38 +252,25 @@ export default function History() {
    STAT CARD
    ============================================================ */
 
-function StatCard({ label, value, unit, sub, Icon, tone = 'hydro' }) {
-  const tones = {
-    hydro: 'from-hydro-400 to-hydro shadow-hydro',
-    aqua:  'from-aqua-400 to-aqua-600 shadow-aqua-500/30',
-    amber: 'from-amber-400 to-amber-500 shadow-amber-500/30',
-  };
+const TONES = {
+  hydro: 'bg-hydro-50 text-hydro',
+  aqua:  'bg-aqua-100 text-aqua-700',
+  sand:  'bg-sand-100 text-sand-700',
+};
 
+function StatCard({ label, value, unit, sub, Icon, tone = 'hydro' }) {
   return (
-    <GlassCard className="relative overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-20 -right-20 h-48 w-48 rounded-full bg-hydro-300/20 blur-3xl"
-      />
-      <div className="relative flex items-start justify-between gap-3">
+    <GlassCard padded="md">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            {label}
+          <p className="kpi-label truncate">{label}</p>
+          <p className="mt-2 flex items-baseline gap-1.5">
+            <AnimatedNumber value={value} decimals={1} className="text-3xl font-extrabold tracking-tight text-ink-900" />
+            <span className="kpi-unit">{unit}</span>
           </p>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-3xl font-extrabold tracking-tight text-slate-800">
-              {value}
-            </span>
-            <span className="text-sm font-bold text-hydro-600">{unit}</span>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">{sub}</p>
+          <p className="mt-1.5 text-xs text-ink-500">{sub}</p>
         </div>
-        <span
-          className={[
-            'grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br text-white',
-            tones[tone],
-          ].join(' ')}
-        >
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${TONES[tone]}`}>
           <Icon size={16} />
         </span>
       </div>

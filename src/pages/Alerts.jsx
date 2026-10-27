@@ -1,17 +1,24 @@
+// File: src/pages/Alerts.jsx
 import { useEffect, useMemo, useState } from 'react';
 import {
   FaBell, FaMagnifyingGlass, FaTriangleExclamation,
-  FaClock, FaMoon, FaCircleCheck, FaWater,
+  FaClock, FaMoon, FaCircleCheck, FaWater, FaChevronDown,
 } from 'react-icons/fa6';
 import { database, ref, onValue } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { useDevices } from '@/hooks/useDevices';
 import { TopBar } from '@/components/layout/TopBar';
 import { GlassCard } from '@/components/ui/GlassCard';
+import { GlassButton } from '@/components/ui/GlassButton';
+import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { DeviceSelect } from '@/components/devices/DeviceSelect';
+
+/* Rows rendered before "Show more" — keeps long histories fast. */
+const PAGE_SIZE = 50;
 
 /* ============================================================
    ALERT CLASSIFICATION — single source of truth
+   (also imported by the dashboard's Recent Alerts card)
    ============================================================ */
 export function getAlertTone(type = '') {
   const t = type.toLowerCase();
@@ -39,6 +46,7 @@ export default function Alerts() {
   const [deviceFilter, setDeviceFilter]     = useState('ALL');
   const [sortBy, setSortBy]                 = useState('newest');
   const [query, setQuery]                   = useState('');
+  const [limit, setLimit]                   = useState(PAGE_SIZE);
 
   useEffect(() => {
     const unsubs = [];
@@ -65,6 +73,9 @@ export default function Alerts() {
     });
     return () => unsubs.forEach((u) => u());
   }, [devices, user.uid]);
+
+  /* Back to the first page whenever the result set changes shape */
+  useEffect(() => { setLimit(PAGE_SIZE); }, [deviceFilter, sortBy, query]);
 
   const deviceFiltered = useMemo(() => {
     const flat = Object.values(alertsByDevice).flat();
@@ -98,95 +109,150 @@ export default function Alerts() {
     hammer:     deviceFiltered.filter((a) => a.type.toLowerCase().includes('hammer')).length,
   }), [deviceFiltered]);
 
+  const shown = visible.slice(0, limit);
+
   return (
     <>
-      <TopBar title="Alerts" icon={FaBell} />
+      <TopBar
+        title="Alerts"
+        icon={FaBell}
+        subtitle={`${stats.total} ${stats.total === 1 ? 'event' : 'events'} recorded`}
+      />
 
-      {/* STAT ROW — five cards */}
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Total Alerts"    value={stats.total}      Icon={FaBell}                tone="hydro" />
-        <StatCard label="High Flow"       value={stats.high}       Icon={FaTriangleExclamation} tone="red" />
-        <StatCard label="Continuous Leak" value={stats.continuous} Icon={FaClock}               tone="amber" />
-        <StatCard label="Off-Hours Flow"  value={stats.offHours}   Icon={FaMoon}                tone="aqua" />
-        <StatCard label="Water Hammer"    value={stats.hammer}     Icon={FaWater}               tone="violet" />
+      {/* STAT ROW — five tiles */}
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+        <StatCard className="col-span-2 lg:col-span-1" label="Total alerts"    value={stats.total}      Icon={FaBell}                tone="hydro" />
+        <StatCard label="High flow"       value={stats.high}       Icon={FaTriangleExclamation} tone="red" />
+        <StatCard label="Continuous leak" value={stats.continuous} Icon={FaClock}               tone="amber" />
+        <StatCard label="Off-hours flow"  value={stats.offHours}   Icon={FaMoon}                tone="aqua" />
+        <StatCard label="Water hammer"    value={stats.hammer}     Icon={FaWater}               tone="violet" />
       </div>
 
       {/* TOOLBAR */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <FaMagnifyingGlass size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="relative min-w-[220px] flex-1">
+          <FaMagnifyingGlass size={14} className="hydro-input-icon" />
           <input
+            type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search alerts by type, date, or device…"
+            aria-label="Search alerts"
             className="hydro-input !pl-10"
           />
         </div>
 
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <DeviceSelect
             devices={devices}
             value={deviceFilter}
             onChange={setDeviceFilter}
-            allLabel="All Registered Devices"
+            allLabel="All registered devices"
           />
         </div>
 
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="hydro-input w-auto cursor-pointer !pl-4"
-        >
-          <option value="newest">Newest First</option>
-          <option value="oldest">Oldest First</option>
-          <option value="severity">Severity (High First)</option>
-        </select>
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort alerts"
+            className="hydro-input w-auto cursor-pointer appearance-none !pr-10"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="severity">Severity (high first)</option>
+          </select>
+          <FaChevronDown size={11} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-ink-400" />
+        </div>
       </div>
 
-      {/* TABLE */}
+      {/* RESULTS */}
       <GlassCard padded={false} className="overflow-hidden">
         {visible.length === 0 ? (
           <EmptyState hasAlerts={deviceFiltered.length > 0} />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50/60 text-left">
-                <tr>
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">When</th>
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Alert</th>
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Flow Rate</th>
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Device</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {visible.map((a) => {
-                  const tone = getAlertTone(a.type);
-                  const Icon = getAlertIcon(a.type);
-                  return (
-                    <tr key={a.id} className="transition-colors hover:bg-slate-50/60">
-                      <td className="px-5 py-4 align-top">
-                        <p className="font-mono text-xs font-semibold text-slate-700">{a.date || '—'}</p>
-                        <p className="font-mono text-[11px] text-slate-400">{a.time || '—'}</p>
-                      </td>
-                      <td className="px-5 py-4 align-top">
-                        <Badge tone={tone} Icon={Icon}>{a.type}</Badge>
-                      </td>
-                      <td className="px-5 py-4 align-top">
-                        <p className="text-sm font-bold text-slate-800">
-                          {a.flowRate.toFixed(1)}
-                          <span className="ml-1 text-xs font-semibold text-slate-500">LPM</span>
-                        </p>
-                      </td>
-                      <td className="px-5 py-4 align-top">
-                        <p className="text-sm font-semibold text-slate-700">{a.deviceName}</p>
-                        <code className="font-mono text-[11px] text-slate-500">{a.deviceId}</code>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* ---- Phones: stacked cards ---- */}
+            <ul className="divide-y divide-white/60 md:hidden">
+              {shown.map((a) => {
+                const tone = getAlertTone(a.type);
+                const Icon = getAlertIcon(a.type);
+                return (
+                  <li key={`${a.deviceId}:${a.id}`} className="px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <Badge tone={tone} Icon={Icon}>{a.type}</Badge>
+                      <p className="shrink-0 text-right font-mono text-[11px] leading-tight text-ink-500">
+                        {a.date || '—'}
+                        <br />
+                        {a.time || '—'}
+                      </p>
+                    </div>
+                    <div className="mt-3 flex items-end justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink-800">{a.deviceName}</p>
+                        <code className="font-mono text-[11px] text-ink-500">{a.deviceId}</code>
+                      </div>
+                      <p className="shrink-0 text-lg font-extrabold tabular-nums text-ink-900">
+                        {a.flowRate.toFixed(1)}
+                        <span className="ml-1 text-xs font-semibold text-ink-400">LPM</span>
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* ---- Tablet / desktop: table ---- */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="border-b border-white/60 bg-white/30 text-left">
+                  <tr>
+                    {['When', 'Alert', 'Flow rate', 'Device'].map((h) => (
+                      <th key={h} scope="col" className="kpi-label px-5 py-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/60">
+                  {shown.map((a) => {
+                    const tone = getAlertTone(a.type);
+                    const Icon = getAlertIcon(a.type);
+                    return (
+                      <tr key={`${a.deviceId}:${a.id}`} className="transition-colors hover:bg-white/50">
+                        <td className="px-5 py-4 align-top">
+                          <p className="font-mono text-xs font-semibold text-ink-700">{a.date || '—'}</p>
+                          <p className="font-mono text-[11px] text-ink-400">{a.time || '—'}</p>
+                        </td>
+                        <td className="px-5 py-4 align-top">
+                          <Badge tone={tone} Icon={Icon}>{a.type}</Badge>
+                        </td>
+                        <td className="px-5 py-4 align-top">
+                          <p className="text-sm font-bold tabular-nums text-ink-800">
+                            {a.flowRate.toFixed(1)}
+                            <span className="ml-1 text-xs font-semibold text-ink-400">LPM</span>
+                          </p>
+                        </td>
+                        <td className="px-5 py-4 align-top">
+                          <p className="text-sm font-semibold text-ink-700">{a.deviceName}</p>
+                          <code className="font-mono text-[11px] text-ink-500">{a.deviceId}</code>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {visible.length > shown.length && (
+              <div className="flex flex-col items-center gap-2 border-t border-white/60 bg-white/30 px-4 py-4">
+                <p className="text-xs text-ink-500">
+                  Showing {shown.length} of {visible.length}
+                </p>
+                <GlassButton variant="ghost" size="sm" onClick={() => setLimit((l) => l + PAGE_SIZE)}>
+                  Show more
+                </GlassButton>
+              </div>
+            )}
+          </>
         )}
       </GlassCard>
     </>
@@ -194,25 +260,20 @@ export default function Alerts() {
 }
 
 /* ============================================================
-   SHARED BADGE — used here and by Dashboard
+   SHARED BADGE — alert-type pill (muted palette)
    ============================================================ */
 
-const TONE_STYLES = {
-  red:    'bg-red-100 text-red-700',
-  amber:  'bg-amber-100 text-amber-700',
-  violet: 'bg-violet-100 text-violet-700',
-  aqua:   'bg-aqua-100 text-aqua-700',
-  slate:  'bg-slate-100 text-slate-600',
+const BADGE_STYLES = {
+  red:    'chip-leak',
+  amber:  'chip-warn',
+  violet: 'chip-info',
+  aqua:   'chip-info',
+  slate:  'chip-offline',
 };
 
 export function Badge({ tone = 'slate', Icon, children }) {
   return (
-    <span
-      className={[
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide',
-        TONE_STYLES[tone] ?? TONE_STYLES.slate,
-      ].join(' ')}
-    >
+    <span className={`chip ${BADGE_STYLES[tone] ?? BADGE_STYLES.slate}`}>
       {Icon && <Icon size={10} />}
       {children}
     </span>
@@ -224,26 +285,24 @@ export function Badge({ tone = 'slate', Icon, children }) {
    ============================================================ */
 
 const STAT_TONES = {
-  hydro:  'bg-hydro/10 text-hydro',
-  red:    'bg-red-100 text-red-600',
-  amber:  'bg-amber-100 text-amber-600',
+  hydro:  'bg-hydro-50 text-hydro',
+  red:    'bg-coral-100 text-coral-600',
+  amber:  'bg-sand-100 text-sand-700',
   aqua:   'bg-aqua-100 text-aqua-700',
-  violet: 'bg-violet-100 text-violet-600',
+  violet: 'bg-hydro-100 text-hydro-700',
 };
 
-function StatCard({ label, value, Icon, tone = 'hydro' }) {
+function StatCard({ label, value, Icon, tone = 'hydro', className = '' }) {
   return (
-    <GlassCard>
+    <GlassCard padded="md" className={className}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            {label}
-          </p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-slate-800">
-            {value}
+          <p className="kpi-label truncate">{label}</p>
+          <p className="mt-2">
+            <AnimatedNumber value={value} duration={700} className="text-3xl font-extrabold tracking-tight text-ink-900" />
           </p>
         </div>
-        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${STAT_TONES[tone]}`}>
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${STAT_TONES[tone]}`}>
           <Icon size={16} />
         </span>
       </div>
@@ -259,22 +318,22 @@ function EmptyState({ hasAlerts }) {
   if (hasAlerts) {
     return (
       <div className="py-16 text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-slate-100 text-slate-400">
-          <FaMagnifyingGlass size={22} />
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-ink-50 text-ink-400">
+          <FaMagnifyingGlass size={20} />
         </span>
-        <h3 className="mt-4 text-base font-bold text-slate-800">No matching alerts</h3>
-        <p className="mt-1 text-sm text-slate-500">Try a different search term or device filter.</p>
+        <h3 className="mt-4 text-base font-bold text-ink-900">No matching alerts</h3>
+        <p className="mt-1 text-sm text-ink-500">Try a different search term or device filter.</p>
       </div>
     );
   }
 
   return (
     <div className="py-16 text-center">
-      <span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-mint-50 text-mint-600">
-        <FaCircleCheck size={28} />
+      <span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-sea-50 text-sea-500">
+        <FaCircleCheck size={26} />
       </span>
-      <h3 className="mt-5 text-lg font-bold text-slate-800">No alerts recorded</h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">
+      <h3 className="mt-5 text-lg font-bold text-ink-900">No alerts recorded</h3>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-500">
         Your water monitoring system has not detected any anomalies.
         Keep it that way — no news is good news.
       </p>

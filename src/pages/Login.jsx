@@ -1,13 +1,17 @@
+// File: src/pages/Login.jsx
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { FaEnvelope, FaLock, FaGoogle } from 'react-icons/fa6';
+import { FaEnvelope, FaLock } from 'react-icons/fa6';
+import { FcGoogle } from 'react-icons/fc';
 import {
   auth, database, ref, get, set, googleProvider,
   signInWithEmailAndPassword, signInWithPopup,
 } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { AuthShell, authLinkCls } from '@/components/layout/AuthShell';
 import { FloatingInput } from '@/components/ui/FloatingInput';
 import { GlassButton } from '@/components/ui/GlassButton';
+import { Notice } from '@/components/ui/Notice';
 
 export default function Login() {
   const { user } = useAuth();
@@ -17,19 +21,20 @@ export default function Login() {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
+  const [notice, setNotice]     = useState('');
   const [busy, setBusy]         = useState(false);
 
   useEffect(() => { if (user) navigate('/dashboard', { replace: true }); }, [user, navigate]);
 
   useEffect(() => {
     if (params.get('reason') === 'inactivity') {
-      setError('You were signed out due to inactivity.');
+      setNotice('You were signed out due to inactivity.');
     }
   }, [params]);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError(''); setBusy(true);
+    setError(''); setNotice(''); setBusy(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
       await ensureUserMirror(cred.user);
@@ -42,7 +47,7 @@ export default function Login() {
   }
 
   async function handleGoogle() {
-    setError(''); setBusy(true);
+    setError(''); setNotice(''); setBusy(true);
     try {
       const cred = await signInWithPopup(auth, googleProvider);
       await ensureUserMirror(cred.user);
@@ -55,93 +60,74 @@ export default function Login() {
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] place-items-center px-4 py-12">
-      <div className="w-full max-w-sm">
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to your HydroTrack account."
+      width="sm"
+      footer={
+        <>
+          Don&apos;t have an account?{' '}
+          <Link to="/register" className={authLinkCls}>Create one</Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {notice && <Notice tone="warning">{notice}</Notice>}
+        {error && <Notice tone="error">{error}</Notice>}
 
-        <div className="mb-10">
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-            Sign in
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Welcome back to HydroTrack.
-          </p>
+        <FloatingInput
+          id="login-email"
+          label="Email"
+          type="email"
+          icon={FaEnvelope}
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <FloatingInput
+          id="login-password"
+          label="Password"
+          type="password"
+          icon={FaLock}
+          required
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <div className="flex justify-end">
+          <Link
+            to="/forgot-password"
+            className="rounded-md text-xs font-semibold text-ink-500 transition-colors hover:text-hydro focus-visible:outline-none focus-visible:underline"
+          >
+            Forgot password?
+          </Link>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50/70 px-3.5 py-2.5 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+        <GlassButton type="submit" loading={busy} fullWidth>
+          {busy ? 'Signing in…' : 'Sign In'}
+        </GlassButton>
 
-          <FloatingInput
-            id="login-email"
-            label="Email"
-            type="email"
-            icon={FaEnvelope}
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+        <div className="flex items-center gap-4 py-1">
+          <div className="h-px flex-1 bg-ink-200/70" />
+          <span className="text-xs font-semibold text-ink-400">or</span>
+          <div className="h-px flex-1 bg-ink-200/70" />
+        </div>
 
-          <FloatingInput
-            id="login-password"
-            label="Password"
-            type="password"
-            icon={FaLock}
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          <div className="flex justify-end pt-1">
-            <Link
-              to="/forgot-password"
-              className="text-xs font-medium text-slate-500 hover:text-hydro transition"
-            >
-              Forgot password?
-            </Link>
-          </div>
-
-          <GlassButton
-            type="submit"
-            loading={busy}
-            fullWidth
-          >
-            {busy ? 'Signing in…' : 'Sign In'}
-          </GlassButton>
-
-          <div className="flex items-center gap-4 pt-1">
-            <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-medium text-slate-400">or</span>
-            <div className="h-px flex-1 bg-slate-200" />
-          </div>
-
-          <GlassButton
-            type="button"
-            variant="google"
-            disabled={busy}
-            leftIcon={<FaGoogle className="text-red-500" size={15} />}
-            onClick={handleGoogle}
-            fullWidth
-          >
-            Continue with Google
-          </GlassButton>
-
-          <p className="pt-2 text-center text-sm text-slate-500">
-            Don't have an account?{' '}
-            <Link
-              to="/register"
-              className="font-semibold text-hydro hover:text-hydro-light transition"
-            >
-              Create one
-            </Link>
-          </p>
-        </form>
-      </div>
-    </div>
+        <GlassButton
+          type="button"
+          variant="google"
+          disabled={busy}
+          leftIcon={<FcGoogle size={18} />}
+          onClick={handleGoogle}
+          fullWidth
+        >
+          Continue with Google
+        </GlassButton>
+      </form>
+    </AuthShell>
   );
 }
 
