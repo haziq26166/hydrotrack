@@ -1,4 +1,3 @@
-// File: dispatcher/notification-server.mjs
 // ============================================================================
 // HydroTrack — Unified Notification Server
 // ----------------------------------------------------------------------------
@@ -16,6 +15,10 @@
 //      `notified: true` so the same alert is never emailed twice.
 //
 // Both channels share the same Nodemailer transport and fail-fast config.
+//
+// Email templates live in dedicated modules:
+//   • alert-template.mjs          → alert notifications
+//   • password-reset-template.mjs → password reset
 // ============================================================================
 
 import 'dotenv/config';
@@ -25,7 +28,8 @@ import nodemailer from 'nodemailer';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getDatabase } from 'firebase-admin/database';
-import { buildAlertEmailHtml, buildAlertEmailText } from './templates.mjs';
+import { buildAlertEmailHtml, buildAlertEmailText } from './alert-template.mjs';
+import { buildPasswordResetHtml, buildPasswordResetText } from './password-reset-template.mjs';
 
 /* ============================================================
    1. CONFIG — read from .env
@@ -92,57 +96,7 @@ const transporter = nodemailer.createTransport({
 });
 
 /* ============================================================
-   4. TEMPLATES — password reset
-   ============================================================ */
-function esc(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[c]));
-}
-
-function buildResetHtml(resetUrl) {
-  const url = esc(resetUrl);
-  return `<!DOCTYPE html>
-<html>
-<body style="font-family:Inter,Arial,sans-serif;background:#F8FAFC;padding:24px;margin:0;">
-  <div style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:16px;padding:32px;box-shadow:0 4px 15px rgba(0,0,0,0.05);">
-    <h2 style="color:#0F172A;margin:0 0 12px 0;font-size:20px;">Reset your HydroTrack password</h2>
-    <p style="color:#475569;margin:0 0 20px 0;line-height:1.5;">
-      We received a request to reset the password for your account. Click the button below to choose a new one.
-    </p>
-    <p style="margin:24px 0;">
-      <a href="${url}" style="display:inline-block;background:#0EA5E9;color:#FFFFFF;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:12px;">
-        Reset password
-      </a>
-    </p>
-    <p style="color:#64748B;font-size:13px;margin:0 0 8px 0;line-height:1.5;">
-      Or paste this link into your browser:
-    </p>
-    <p style="color:#0EA5E9;font-size:12px;word-break:break-all;margin:0 0 20px 0;">${url}</p>
-    <hr style="border:none;border-top:1px solid #E2E8F0;margin:24px 0 16px 0;"/>
-    <p style="color:#94A3B8;font-size:12px;margin:0;line-height:1.5;">
-      This link can be used once and expires soon. If you didn't request this, you can safely ignore this email.
-    </p>
-  </div>
-</body>
-</html>`;
-}
-
-function buildResetText(resetUrl) {
-  return `Reset your HydroTrack password
-
-We received a request to reset the password for your account.
-Open this link to choose a new password:
-
-${resetUrl}
-
-This link can be used once and expires soon.
-If you didn't request this, you can safely ignore this email.
-`;
-}
-
-/* ============================================================
-   5. RATE LIMITER — password reset
+   4. RATE LIMITER — password reset
    ============================================================ */
 const WINDOW_MS = 15 * 60 * 1000;
 const hits = new Map();
@@ -164,7 +118,7 @@ setInterval(() => {
 }, WINDOW_MS).unref();
 
 /* ============================================================
-   6. PASSWORD RESET — core logic
+   5. PASSWORD RESET — core logic
    ============================================================ */
 async function sendResetEmail(email) {
   try {
@@ -184,8 +138,8 @@ async function sendResetEmail(email) {
       from:    `"${config.fromName}" <${config.fromEmail}>`,
       to:      email,
       subject: 'Reset your HydroTrack password',
-      text:    buildResetText(resetUrl),
-      html:    buildResetHtml(resetUrl),
+      text:    buildPasswordResetText(resetUrl),
+      html:    buildPasswordResetHtml(resetUrl),
     });
 
     console.log(`[reset] email sent to ${email} with direct URL`);
@@ -206,7 +160,7 @@ async function sendResetEmail(email) {
 }
 
 /* ============================================================
-   7. RTDB ALERT LISTENER
+   6. RTDB ALERT LISTENER
    ============================================================ */
 /*
    We attach a single `on('value')` listener at the root of `users`. Every
@@ -315,7 +269,7 @@ function attachAlertListener() {
 }
 
 /* ============================================================
-   8. HTTP SERVER — password reset endpoint
+   7. HTTP SERVER — password reset endpoint
    ============================================================ */
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', config.corsOrigin);
@@ -390,7 +344,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 /* ============================================================
-   9. BOOT
+   8. BOOT
    ============================================================ */
 
 /* Verify SMTP once up front — catches bad credentials before we attach the

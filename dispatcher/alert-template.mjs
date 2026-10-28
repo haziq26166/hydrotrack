@@ -1,8 +1,5 @@
 /* ============================================================
-   Email templates for HydroTrack alerts.
-
-   Both functions accept the same argument object:
-     { name, deviceId, type, date, time, flowRate }
+   Email templates for HydroTrack ALERT notifications.
    ============================================================ */
 
 /* Escape untrusted values before inserting into HTML. */
