@@ -1,6 +1,0 @@
-node_modules/
-.env
-dispatcher.log
-service-account.json
-test-admin.mjs
-test-smtp.mjs
