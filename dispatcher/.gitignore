@@ -5,3 +5,4 @@ service-account.json
 test-admin.mjs
 test-smtp.mjs
 run.bat
+README.md
