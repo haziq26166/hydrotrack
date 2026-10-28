@@ -1,4 +1,3 @@
-// File: src/components/layout/AuthShell.jsx
 import { FaDroplet } from 'react-icons/fa6';
 
 /**

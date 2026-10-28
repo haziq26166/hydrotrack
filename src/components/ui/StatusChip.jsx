@@ -1,5 +1,3 @@
-// File: src/components/ui/StatusChip.jsx
-
 /* ============================================================
    STATUS MODEL — shared across the whole app
    ok      normal flow            (sea green)

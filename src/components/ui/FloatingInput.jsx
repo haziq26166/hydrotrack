@@ -1,4 +1,3 @@
-// File: src/components/ui/FloatingInput.jsx
 import { useState } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa6';
 

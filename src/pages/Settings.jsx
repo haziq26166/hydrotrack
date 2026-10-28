@@ -1,4 +1,3 @@
-// File: src/pages/Settings.jsx
 import { useEffect, useState } from 'react';
 import {
   FaGear, FaFloppyDisk, FaBell, FaMicrochip,

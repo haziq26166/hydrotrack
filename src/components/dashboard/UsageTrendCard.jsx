@@ -1,4 +1,3 @@
-// File: src/components/dashboard/UsageTrendCard.jsx
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaChartColumn, FaArrowRight } from 'react-icons/fa6';

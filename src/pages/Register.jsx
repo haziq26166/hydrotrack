@@ -1,4 +1,3 @@
-// File: src/pages/Register.jsx
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaUser, FaUserPlus } from 'react-icons/fa6';

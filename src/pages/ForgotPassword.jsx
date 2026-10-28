@@ -1,4 +1,3 @@
-// File: src/pages/ForgotPassword.jsx
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaEnvelope, FaPaperPlane } from 'react-icons/fa6';

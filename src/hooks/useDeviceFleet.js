@@ -1,4 +1,3 @@
-// File: src/hooks/useDeviceFleet.js
 import { useEffect, useMemo, useState } from 'react';
 import { database, ref, onValue } from '@/services/firebase';
 import { useDevices } from './useDevices';

@@ -1,4 +1,3 @@
-// File: src/pages/Alerts.jsx
 import { useEffect, useMemo, useState } from 'react';
 import {
   FaBell, FaMagnifyingGlass, FaTriangleExclamation,

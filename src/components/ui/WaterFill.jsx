@@ -1,5 +1,3 @@
-// File: src/components/ui/WaterFill.jsx
-
 /* One seamless wave period is 600 units; the SVG holds two (1200 wide)
    and is shifted by -50% to loop without a visible seam. */
 const WAVE_PATH =

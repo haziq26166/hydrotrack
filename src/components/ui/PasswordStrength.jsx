@@ -1,4 +1,3 @@
-// File: src/components/ui/PasswordStrength.jsx
 import { FaCheck, FaCircle } from 'react-icons/fa6';
 
 /* ============================================================

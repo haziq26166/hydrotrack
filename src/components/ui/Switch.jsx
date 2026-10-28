@@ -1,4 +1,3 @@
-// File: src/components/ui/Switch.jsx
 import { useId } from 'react';
 
 /**

@@ -1,12 +1,9 @@
-// File: src/components/dashboard/DeviceCard.jsx
 import { GlassCard } from '@/components/ui/GlassCard';
 import { StatusChip } from '@/components/ui/StatusChip';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { WaterFill } from '@/components/ui/WaterFill';
 import { formatAgo } from '@/lib/format';
 
-/* The fill is a flow-intensity gauge (flow ÷ 40 LPM), not a tank level —
-   the exact numbers are always printed next to it. */
 const FLOW_FULL_SCALE_LPM = 40;
 const MIN_ONLINE_LEVEL = 12;       /* decorative floor so a calm device still shows water */
 

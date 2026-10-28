@@ -1,4 +1,3 @@
-// File: src/components/layout/SidebarContent.jsx
 import { NavLink } from 'react-router-dom';
 import { FaDroplet, FaPlus, FaRightFromBracket } from 'react-icons/fa6';
 import { useAuth } from '@/context/AuthContext';

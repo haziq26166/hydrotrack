@@ -1,4 +1,3 @@
-// File: src/components/dashboard/KpiStrip.jsx
 import {
   FaGaugeHigh, FaDroplet, FaCalendarWeek, FaWifi,
 } from 'react-icons/fa6';

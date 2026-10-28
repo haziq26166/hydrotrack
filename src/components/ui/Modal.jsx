@@ -1,4 +1,3 @@
-// File: src/components/ui/Modal.jsx
 import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FaXmark } from 'react-icons/fa6';

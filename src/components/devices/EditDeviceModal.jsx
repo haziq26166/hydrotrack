@@ -1,4 +1,3 @@
-// File: src/components/devices/EditDeviceModal.jsx
 import { useEffect, useState } from 'react';
 import { FaFloppyDisk, FaTag } from 'react-icons/fa6';
 import { database, ref, set } from '@/services/firebase';

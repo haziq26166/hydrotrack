@@ -1,5 +1,3 @@
-// File: src/lib/format.js
-
 /** Humanize "X seconds ago" into a compact label (e.g. "42s ago", "3h ago"). */
 export function formatAgo(seconds) {
   if (seconds === null || seconds === undefined) return '';

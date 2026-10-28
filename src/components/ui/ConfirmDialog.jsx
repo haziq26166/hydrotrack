@@ -1,4 +1,3 @@
-// File: src/components/ui/ConfirmDialog.jsx
 import { FaTriangleExclamation } from 'react-icons/fa6';
 import { Modal } from './Modal';
 import { GlassButton } from './GlassButton';

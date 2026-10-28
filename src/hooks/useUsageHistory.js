@@ -1,4 +1,3 @@
-// File: src/hooks/useUsageHistory.js
 import { useEffect, useMemo, useState } from 'react';
 import { database, ref, onValue } from '@/services/firebase';
 

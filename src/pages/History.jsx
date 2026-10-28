@@ -1,4 +1,3 @@
-// File: src/pages/History.jsx
 import { useEffect, useMemo, useState } from 'react';
 import {
   FaChartColumn, FaDroplet, FaChartSimple, FaArrowTrendUp,

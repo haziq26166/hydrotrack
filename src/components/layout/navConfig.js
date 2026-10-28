@@ -1,4 +1,3 @@
-// File: src/components/layout/navConfig.js
 import {
   FaHouse, FaDroplet, FaBell, FaChartColumn, FaUser, FaGear,
 } from 'react-icons/fa6';

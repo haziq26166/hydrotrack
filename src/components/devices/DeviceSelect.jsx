@@ -1,4 +1,3 @@
-// File: src/components/devices/DeviceSelect.jsx
 import { FaChevronDown } from 'react-icons/fa6';
 
 /**

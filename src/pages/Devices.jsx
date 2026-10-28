@@ -1,4 +1,3 @@
-// File: src/pages/Devices.jsx
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {

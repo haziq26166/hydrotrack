@@ -1,4 +1,3 @@
-// File: src/pages/Login.jsx
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FaEnvelope, FaLock } from 'react-icons/fa6';

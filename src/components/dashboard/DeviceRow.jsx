@@ -1,4 +1,3 @@
-// File: src/components/dashboard/DeviceRow.jsx
 import { StatusChip, StatusDot } from '@/components/ui/StatusChip';
 import { formatAgo } from '@/lib/format';
 import { describeDevice } from './DeviceCard';

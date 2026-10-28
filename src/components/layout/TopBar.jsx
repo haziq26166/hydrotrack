@@ -1,5 +1,3 @@
-// File: src/components/layout/TopBar.jsx
-
 /**
  * Page header. Existing usage `<TopBar title="…" icon={Icon} />` is unchanged.
  *

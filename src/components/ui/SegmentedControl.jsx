@@ -1,5 +1,3 @@
-// File: src/components/ui/SegmentedControl.jsx
-
 /**
  * Glass pill group for choosing one of a few options (e.g. Daily / Monthly).
  *   options   [{ id, label }]

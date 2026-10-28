@@ -1,4 +1,3 @@
-// File: src/components/dashboard/DeviceCollection.jsx
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FaTableCellsLarge, FaListUl } from 'react-icons/fa6';
 import { useMediaQuery } from '@/hooks/useMediaQuery';

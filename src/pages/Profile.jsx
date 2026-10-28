@@ -1,4 +1,3 @@
-// File: src/pages/Profile.jsx
 import { useEffect, useMemo, useState } from 'react';
 import {
   FaUser, FaFloppyDisk, FaLock, FaEnvelope,

@@ -1,4 +1,3 @@
-// File: src/components/dashboard/RecentAlertsCard.jsx
 import { Link } from 'react-router-dom';
 import { FaBell, FaArrowRight, FaShieldHalved } from 'react-icons/fa6';
 import { GlassCard } from '@/components/ui/GlassCard';

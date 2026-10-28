@@ -1,5 +1,3 @@
-// File: src/components/ui/Spinner.jsx
-
 const SIZES = {
   sm: { box: 'h-6 w-6',   border: 'border-2' },
   md: { box: 'h-12 w-12', border: 'border-4' },

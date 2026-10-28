@@ -1,4 +1,3 @@
-// File: src/components/ui/Notice.jsx
 import {
   FaCircleCheck, FaCircleExclamation, FaTriangleExclamation, FaCircleInfo,
 } from 'react-icons/fa6';

@@ -1,4 +1,3 @@
-// File: src/hooks/useMediaQuery.js
 import { useEffect, useState } from 'react';
 
 const read = (query) =>

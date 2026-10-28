@@ -1,4 +1,3 @@
-// File: src/components/layout/Sidebar.jsx
 import { FaAngleLeft, FaAngleRight } from 'react-icons/fa6';
 import { SidebarContent } from './SidebarContent';
 

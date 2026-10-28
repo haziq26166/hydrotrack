@@ -1,4 +1,3 @@
-// File: src/components/layout/PublicLayout.jsx
 import { Outlet } from 'react-router-dom';
 import { PublicNavbar } from './PublicNavbar';
 

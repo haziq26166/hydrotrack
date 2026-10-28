@@ -1,4 +1,3 @@
-// File: src/pages/Dashboard.jsx
 import { useOutletContext } from 'react-router-dom';
 import { FaTableCellsLarge, FaDroplet, FaPlus } from 'react-icons/fa6';
 import { useAuth } from '@/context/AuthContext';

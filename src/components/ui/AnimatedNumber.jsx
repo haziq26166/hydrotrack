@@ -1,4 +1,3 @@
-// File: src/components/ui/AnimatedNumber.jsx
 import { useEffect, useRef, useState } from 'react';
 
 const prefersReducedMotion = () =>

@@ -1,5 +1,3 @@
-// File: src/components/ui/GlassCard.jsx
-
 /**
  * Frosted-glass surface.
  *

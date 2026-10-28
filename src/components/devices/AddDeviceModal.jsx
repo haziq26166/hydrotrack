@@ -1,4 +1,3 @@
-// File: src/components/devices/AddDeviceModal.jsx
 import { useEffect, useState } from 'react';
 import { FaLink, FaHashtag, FaTag } from 'react-icons/fa6';
 import {

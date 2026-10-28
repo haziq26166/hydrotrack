@@ -1,4 +1,3 @@
-// File: src/components/ui/Toast.jsx
 import { useEffect, useRef } from 'react';
 import {
   FaCircleCheck, FaCircleExclamation, FaTriangleExclamation, FaCircleInfo, FaXmark,

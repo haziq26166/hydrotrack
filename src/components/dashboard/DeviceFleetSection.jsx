@@ -1,4 +1,3 @@
-// File: src/components/dashboard/DeviceFleetSection.jsx
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaMagnifyingGlass, FaArrowRight } from 'react-icons/fa6';

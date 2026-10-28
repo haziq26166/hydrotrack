@@ -1,4 +1,3 @@
-// File: src/components/layout/PublicNavbar.jsx
 import { Link, NavLink } from 'react-router-dom';
 import { FaDroplet } from 'react-icons/fa6';
 import { useAuth } from '@/context/AuthContext';
