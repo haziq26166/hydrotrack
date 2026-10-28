@@ -18,3 +18,11 @@ Thumbs.db
 
 # Firmware
 firmware
+
+# Dispatcher
+dispatcher/node_modules/
+dispatcher/.env
+dispatcher/dispatcher.log
+dispatcher/service-account.json
+dispatcher/test-admin.mjs
+dispatcher/test-smtp.mjs
