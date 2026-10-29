@@ -339,9 +339,8 @@ All settings are saved per device under `devices/{deviceId}/settings`.
 ## 👤 Author
 
 **Haziq**
-Final Year Project: HydroTrack
 GitHub: [@haziq26166](https://github.com/haziq26166)
 
 ---
 
-<p align="center">Made with 💧 for the Final Year Project</p>
+<p align="center">Made for the Final Year Project</p>
