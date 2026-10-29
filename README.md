@@ -339,8 +339,9 @@ All settings are saved per device under `devices/{deviceId}/settings`.
 ## 👤 Author
 
 **Haziq**
+
 GitHub: [@haziq26166](https://github.com/haziq26166)
 
 ---
 
-<p align="center">Made for the Final Year Project</p>
+<p align="center">Final Year Project 20264</p>
