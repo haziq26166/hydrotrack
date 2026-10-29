@@ -4,9 +4,11 @@ import { useAuth } from '@/context/AuthContext';
 import { useDeviceFleet } from '@/hooks/useDeviceFleet';
 import { useUsageHistory } from '@/hooks/useUsageHistory';
 import { useRecentAlerts } from '@/hooks/useRecentAlerts';
+import { useAlertAcknowledge } from '@/hooks/useAlertAcknowledge';
 import { TopBar } from '@/components/layout/TopBar';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
+import { Toast } from '@/components/ui/Toast';
 import { LeakAlertBanner } from '@/components/dashboard/LeakAlertBanner';
 import { KpiStrip } from '@/components/dashboard/KpiStrip';
 import { DeviceFleetSection } from '@/components/dashboard/DeviceFleetSection';
@@ -19,7 +21,7 @@ import { plural } from '@/lib/format';
  *   1. Leak / status banner
  *   2. KPI strip (live flow · today · week · devices online)
  *   3. Devices (cards, or a compact list from 6 devices up)
- *   4. Usage trend + recent alerts
+ *   4. Usage trend + recent alerts (acknowledgeable)
  */
 export default function Dashboard() {
   const { user } = useAuth();
@@ -28,6 +30,7 @@ export default function Dashboard() {
   const fleet  = useDeviceFleet(user.uid);
   const usage  = useUsageHistory(user.uid, fleet.list);
   const alerts = useRecentAlerts(user.uid, fleet.devices, 5);
+  const ack    = useAlertAcknowledge(user.uid);
 
   const { summary } = fleet;
 
@@ -55,10 +58,18 @@ export default function Dashboard() {
 
           <div className="grid gap-5 lg:grid-cols-5">
             <UsageTrendCard usage={usage} className="lg:col-span-3" />
-            <RecentAlertsCard alerts={alerts.alerts} ready={alerts.ready} className="lg:col-span-2" />
+            <RecentAlertsCard
+              alerts={alerts.alerts}
+              ready={alerts.ready}
+              onAcknowledge={ack.acknowledge}
+              isPending={ack.isPending}
+              className="lg:col-span-2"
+            />
           </div>
         </div>
       )}
+
+      <Toast toast={ack.toast} onClose={ack.clearToast} />
     </>
   );
 }

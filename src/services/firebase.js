@@ -32,6 +32,7 @@ import {
   query,
   orderByChild,
   limitToLast,
+  serverTimestamp,
 } from 'firebase/database';
 
 const firebaseConfig = {
@@ -84,4 +85,5 @@ export {
   query,
   orderByChild,
   limitToLast,
+  serverTimestamp,
 };

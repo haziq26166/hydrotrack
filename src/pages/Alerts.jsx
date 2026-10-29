@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   FaBell, FaMagnifyingGlass, FaTriangleExclamation,
-  FaClock, FaMoon, FaCircleCheck, FaWater, FaChevronDown,
+  FaClock, FaMoon, FaCircleCheck, FaCircleExclamation, FaWater, FaChevronDown,
+  FaCheck, FaCheckDouble, FaRotateLeft,
 } from 'react-icons/fa6';
 import { database, ref, onValue } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { useDevices } from '@/hooks/useDevices';
+import { useAlertAcknowledge } from '@/hooks/useAlertAcknowledge';
 import { TopBar } from '@/components/layout/TopBar';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
+import { Toast } from '@/components/ui/Toast';
 import { DeviceSelect } from '@/components/devices/DeviceSelect';
 
 /* Rows rendered before "Show more" — keeps long histories fast. */
@@ -37,12 +40,24 @@ export function getAlertIcon(type = '') {
   return FaBell;
 }
 
+/* "12 Mar 2026, 14:05" — empty string when there is no timestamp. */
+function formatAckTime(ts) {
+  if (!ts) return '';
+  try {
+    return new Date(ts).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return '';
+  }
+}
+
 export default function Alerts() {
   const { user } = useAuth();
   const { devices } = useDevices(user.uid);
+  const ack = useAlertAcknowledge(user.uid);
 
   const [alertsByDevice, setAlertsByDevice] = useState({});
   const [deviceFilter, setDeviceFilter]     = useState('ALL');
+  const [statusFilter, setStatusFilter]     = useState('all');
   const [sortBy, setSortBy]                 = useState('newest');
   const [query, setQuery]                   = useState('');
   const [limit, setLimit]                   = useState(PAGE_SIZE);
@@ -64,6 +79,8 @@ export default function Alerts() {
             time:      val.time || '',
             flowRate:  Number(val.flow_rate || 0),
             timestamp: Number(val.timestamp || 0),
+            acknowledged:   val.acknowledged === true,
+            acknowledgedAt: Number(val.acknowledged_at || 0),
           }));
           setAlertsByDevice((prev) => ({ ...prev, [id]: items }));
         }
@@ -74,7 +91,7 @@ export default function Alerts() {
   }, [devices, user.uid]);
 
   /* Back to the first page whenever the result set changes shape */
-  useEffect(() => { setLimit(PAGE_SIZE); }, [deviceFilter, sortBy, query]);
+  useEffect(() => { setLimit(PAGE_SIZE); }, [deviceFilter, statusFilter, sortBy, query]);
 
   const deviceFiltered = useMemo(() => {
     const flat = Object.values(alertsByDevice).flat();
@@ -85,12 +102,17 @@ export default function Alerts() {
 
   const visible = useMemo(() => {
     const q = query.toLowerCase().trim();
-    const filtered = deviceFiltered.filter((a) =>
-      a.type.toLowerCase().includes(q) ||
-      a.date.toLowerCase().includes(q) ||
-      a.deviceName.toLowerCase().includes(q) ||
-      a.deviceId.toLowerCase().includes(q)
-    );
+    const filtered = deviceFiltered.filter((a) => {
+      if (statusFilter === 'unacknowledged' && a.acknowledged)  return false;
+      if (statusFilter === 'acknowledged'   && !a.acknowledged) return false;
+
+      return (
+        a.type.toLowerCase().includes(q) ||
+        a.date.toLowerCase().includes(q) ||
+        a.deviceName.toLowerCase().includes(q) ||
+        a.deviceId.toLowerCase().includes(q)
+      );
+    });
 
     filtered.sort((a, b) => {
       if (sortBy === 'oldest')   return a.timestamp - b.timestamp;
@@ -98,29 +120,39 @@ export default function Alerts() {
       return b.timestamp - a.timestamp;
     });
     return filtered;
-  }, [deviceFiltered, sortBy, query]);
+  }, [deviceFiltered, statusFilter, sortBy, query]);
 
   const stats = useMemo(() => ({
-    total:      deviceFiltered.length,
-    high:       deviceFiltered.filter((a) => a.type.toLowerCase().includes('high')).length,
-    continuous: deviceFiltered.filter((a) => a.type.toLowerCase().includes('continuous')).length,
-    offHours:   deviceFiltered.filter((a) => a.type.toLowerCase().includes('off-hours')).length,
-    hammer:     deviceFiltered.filter((a) => a.type.toLowerCase().includes('hammer')).length,
+    total:          deviceFiltered.length,
+    unacknowledged: deviceFiltered.filter((a) => !a.acknowledged).length,
+    high:           deviceFiltered.filter((a) => a.type.toLowerCase().includes('high')).length,
+    continuous:     deviceFiltered.filter((a) => a.type.toLowerCase().includes('continuous')).length,
+    offHours:       deviceFiltered.filter((a) => a.type.toLowerCase().includes('off-hours')).length,
+    hammer:         deviceFiltered.filter((a) => a.type.toLowerCase().includes('hammer')).length,
   }), [deviceFiltered]);
 
   const shown = visible.slice(0, limit);
+
+  /* Everything in the current filtered view that still needs acknowledging
+     (not just the rows on the current page). */
+  const pendingInView = useMemo(() => visible.filter((a) => !a.acknowledged), [visible]);
 
   return (
     <>
       <TopBar
         title="Alerts"
         icon={FaBell}
-        subtitle={`${stats.total} ${stats.total === 1 ? 'event' : 'events'} recorded`}
+        subtitle={
+          stats.unacknowledged > 0
+            ? `${stats.total} ${stats.total === 1 ? 'event' : 'events'} · ${stats.unacknowledged} unacknowledged`
+            : `${stats.total} ${stats.total === 1 ? 'event' : 'events'} recorded`
+        }
       />
 
-      {/* STAT ROW — five tiles */}
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-        <StatCard className="col-span-2 lg:col-span-1" label="Total alerts"    value={stats.total}      Icon={FaBell}                tone="hydro" />
+      {/* STAT ROW — six tiles */}
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-6">
+        <StatCard className="col-span-2 lg:col-span-1" label="Total alerts"    value={stats.total}          Icon={FaBell}                tone="hydro" />
+        <StatCard className="col-span-2 lg:col-span-1" label="Unacknowledged"  value={stats.unacknowledged} Icon={FaCircleExclamation}   tone="red" />
         <StatCard label="High flow"       value={stats.high}       Icon={FaTriangleExclamation} tone="red" />
         <StatCard label="Continuous leak" value={stats.continuous} Icon={FaClock}               tone="amber" />
         <StatCard label="Off-hours flow"  value={stats.offHours}   Icon={FaMoon}                tone="aqua" />
@@ -152,6 +184,20 @@ export default function Alerts() {
 
         <div className="relative">
           <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter alerts by status"
+            className="hydro-input w-auto cursor-pointer appearance-none !pr-10"
+          >
+            <option value="all">All statuses</option>
+            <option value="unacknowledged">Unacknowledged</option>
+            <option value="acknowledged">Acknowledged</option>
+          </select>
+          <FaChevronDown size={11} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-ink-400" />
+        </div>
+
+        <div className="relative">
+          <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             aria-label="Sort alerts"
@@ -163,6 +209,16 @@ export default function Alerts() {
           </select>
           <FaChevronDown size={11} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-ink-400" />
         </div>
+
+        <GlassButton
+          variant="primary"
+          leftIcon={<FaCheckDouble size={12} />}
+          loading={ack.bulkPending}
+          disabled={pendingInView.length === 0}
+          onClick={() => ack.acknowledgeMany(pendingInView)}
+        >
+          {pendingInView.length > 0 ? `Acknowledge all (${pendingInView.length})` : 'Acknowledge all'}
+        </GlassButton>
       </div>
 
       {/* RESULTS */}
@@ -177,7 +233,10 @@ export default function Alerts() {
                 const tone = getAlertTone(a.type);
                 const Icon = getAlertIcon(a.type);
                 return (
-                  <li key={`${a.deviceId}:${a.id}`} className="px-4 py-4">
+                  <li
+                    key={`${a.deviceId}:${a.id}`}
+                    className={`px-4 py-4 transition-opacity ${a.acknowledged ? 'opacity-70' : ''}`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <Badge tone={tone} Icon={Icon}>{a.type}</Badge>
                       <p className="shrink-0 text-right font-mono text-[11px] leading-tight text-ink-500">
@@ -196,6 +255,15 @@ export default function Alerts() {
                         <span className="ml-1 text-xs font-semibold text-ink-400">LPM</span>
                       </p>
                     </div>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <AckStatus alert={a} />
+                      <AckAction
+                        alert={a}
+                        pending={ack.isPending(a)}
+                        onAcknowledge={ack.acknowledge}
+                        onUndo={ack.unacknowledge}
+                      />
+                    </div>
                   </li>
                 );
               })}
@@ -206,9 +274,12 @@ export default function Alerts() {
               <table className="w-full text-sm">
                 <thead className="border-b border-white/60 bg-white/30 text-left">
                   <tr>
-                    {['When', 'Alert', 'Flow rate', 'Device'].map((h) => (
+                    {['When', 'Alert', 'Flow rate', 'Device', 'Status'].map((h) => (
                       <th key={h} scope="col" className="kpi-label px-5 py-3">{h}</th>
                     ))}
+                    <th scope="col" className="kpi-label px-5 py-3 text-right">
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/60">
@@ -216,7 +287,10 @@ export default function Alerts() {
                     const tone = getAlertTone(a.type);
                     const Icon = getAlertIcon(a.type);
                     return (
-                      <tr key={`${a.deviceId}:${a.id}`} className="transition-colors hover:bg-white/50">
+                      <tr
+                        key={`${a.deviceId}:${a.id}`}
+                        className={`transition-colors hover:bg-white/50 ${a.acknowledged ? 'opacity-70' : ''}`}
+                      >
                         <td className="px-5 py-4 align-top">
                           <p className="font-mono text-xs font-semibold text-ink-700">{a.date || '—'}</p>
                           <p className="font-mono text-[11px] text-ink-400">{a.time || '—'}</p>
@@ -233,6 +307,17 @@ export default function Alerts() {
                         <td className="px-5 py-4 align-top">
                           <p className="text-sm font-semibold text-ink-700">{a.deviceName}</p>
                           <code className="font-mono text-[11px] text-ink-500">{a.deviceId}</code>
+                        </td>
+                        <td className="px-5 py-4 align-top">
+                          <AckStatus alert={a} />
+                        </td>
+                        <td className="px-5 py-4 text-right align-top">
+                          <AckAction
+                            alert={a}
+                            pending={ack.isPending(a)}
+                            onAcknowledge={ack.acknowledge}
+                            onUndo={ack.unacknowledge}
+                          />
                         </td>
                       </tr>
                     );
@@ -254,7 +339,67 @@ export default function Alerts() {
           </>
         )}
       </GlassCard>
+
+      <Toast toast={ack.toast} onClose={ack.clearToast} />
     </>
+  );
+}
+
+/* ============================================================
+   ACKNOWLEDGEMENT UI
+   ============================================================ */
+
+/* Status pill (+ when it was acknowledged). */
+function AckStatus({ alert }) {
+  if (alert.acknowledged) {
+    const when = formatAckTime(alert.acknowledgedAt);
+    return (
+      <div className="min-w-0">
+        <span className="chip chip-ok">
+          <FaCheck size={10} />
+          Acknowledged
+        </span>
+        {when && <p className="mt-1 font-mono text-[11px] text-ink-400">{when}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <span className="chip chip-warn">
+      <FaCircleExclamation size={10} />
+      Unacknowledged
+    </span>
+  );
+}
+
+/* Acknowledge button, or an Undo button once acknowledged. */
+function AckAction({ alert, pending, onAcknowledge, onUndo }) {
+  if (alert.acknowledged) {
+    return (
+      <GlassButton
+        variant="ghost"
+        size="sm"
+        loading={pending}
+        leftIcon={<FaRotateLeft size={11} />}
+        onClick={() => onUndo(alert)}
+        aria-label={`Mark ${alert.type} on ${alert.deviceName} as unacknowledged`}
+      >
+        Undo
+      </GlassButton>
+    );
+  }
+
+  return (
+    <GlassButton
+      variant="primary"
+      size="sm"
+      loading={pending}
+      leftIcon={<FaCheck size={11} />}
+      onClick={() => onAcknowledge(alert)}
+      aria-label={`Acknowledge ${alert.type} on ${alert.deviceName}`}
+    >
+      Acknowledge
+    </GlassButton>
   );
 }
 
@@ -321,7 +466,7 @@ function EmptyState({ hasAlerts }) {
           <FaMagnifyingGlass size={20} />
         </span>
         <h3 className="mt-4 text-base font-bold text-ink-900">No matching alerts</h3>
-        <p className="mt-1 text-sm text-ink-500">Try a different search term or device filter.</p>
+        <p className="mt-1 text-sm text-ink-500">Try a different search term, status, or device filter.</p>
       </div>
     );
   }

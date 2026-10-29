@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { FaBell, FaArrowRight, FaShieldHalved } from 'react-icons/fa6';
+import { FaBell, FaArrowRight, FaShieldHalved, FaCheck } from 'react-icons/fa6';
 import { GlassCard } from '@/components/ui/GlassCard';
+import { GlassButton } from '@/components/ui/GlassButton';
 import { getAlertTone, getAlertIcon } from '@/pages/Alerts';
 
 /* The Alerts page classifies by tone name; map those to the muted palette. */
@@ -14,10 +15,20 @@ const TONE = {
 
 /**
  * Latest alerts across all devices.
- *   alerts  from useRecentAlerts()
- *   ready   false while subscriptions are loading
+ *   alerts         from useRecentAlerts()
+ *   ready          false while subscriptions are loading
+ *   onAcknowledge  (alert) => void   — from useAlertAcknowledge()
+ *   isPending      (alert) => boolean — from useAlertAcknowledge()
  */
-export function RecentAlertsCard({ alerts, ready, className = '' }) {
+export function RecentAlertsCard({
+  alerts,
+  ready,
+  onAcknowledge,
+  isPending = () => false,
+  className = '',
+}) {
+  const unacknowledged = alerts.filter((a) => !a.acknowledged).length;
+
   return (
     <GlassCard padded="md" className={className}>
       <div className="mb-5 flex items-start justify-between gap-3">
@@ -27,7 +38,10 @@ export function RecentAlertsCard({ alerts, ready, className = '' }) {
           </span>
           <div>
             <h3 className="section-title">Recent alerts</h3>
-            <p className="text-xs text-ink-500">Latest {alerts.length || 5} events</p>
+            <p className="text-xs text-ink-500">
+              Latest {alerts.length || 5} events
+              {unacknowledged > 0 && ` · ${unacknowledged} unacknowledged`}
+            </p>
           </div>
         </div>
 
@@ -61,7 +75,10 @@ export function RecentAlertsCard({ alerts, ready, className = '' }) {
             return (
               <li
                 key={a.key}
-                className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/50 px-3.5 py-3 transition-colors hover:bg-white/80"
+                className={[
+                  'flex items-center gap-3 rounded-2xl border border-white/70 bg-white/50 px-3.5 py-3 transition-colors hover:bg-white/80',
+                  a.acknowledged ? 'opacity-70' : '',
+                ].join(' ')}
               >
                 <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${tone.bg} ${tone.fg}`}>
                   <Icon size={14} />
@@ -77,9 +94,31 @@ export function RecentAlertsCard({ alerts, ready, className = '' }) {
                   </p>
                 </div>
 
-                <span className="shrink-0 text-right font-mono text-[11px] leading-tight text-ink-500">
-                  {when}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <span className="text-right font-mono text-[11px] leading-tight text-ink-500">
+                    {when}
+                  </span>
+
+                  {a.acknowledged ? (
+                    <span className="chip chip-ok">
+                      <FaCheck size={9} />
+                      Acknowledged
+                    </span>
+                  ) : (
+                    onAcknowledge && (
+                      <GlassButton
+                        variant="primary"
+                        size="sm"
+                        loading={isPending(a)}
+                        leftIcon={<FaCheck size={10} />}
+                        onClick={() => onAcknowledge(a)}
+                        aria-label={`Acknowledge ${a.type} on ${a.deviceName}`}
+                      >
+                        Acknowledge
+                      </GlassButton>
+                    )
+                  )}
+                </div>
               </li>
             );
           })}
