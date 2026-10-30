@@ -82,10 +82,14 @@ export default function Devices() {
     setDeleting(true);
 
     try {
-      await update(ref(database), {
+      const updates = {
         [`users/${user.uid}/user_devices/${id}`]: null,
         [`devices/${id}/claimed_by`]:             null,
-      });
+      };
+      /* Don't leave a dangling default-device pointer behind. */
+      if (id === defaultId) updates[`users/${user.uid}/default_device_id`] = null;
+
+      await update(ref(database), updates);
       setToast({ type: 'success', message: `“${name}” was unlinked.` });
       setDeleteTarget(null);
     } catch (err) {

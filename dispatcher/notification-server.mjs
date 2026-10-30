@@ -9,7 +9,8 @@
 //      size limits, CORS, and fail-fast configuration checks.
 //
 //   2. Realtime Database listener
-//      Watches `users/{uid}/devices/{deviceId}/alerts/{alertId}`. Whenever an
+//      Watches `users/{uid}/devices/{deviceId}/alerts/{alertId}` through
+//      child_added / child_changed listeners on `users`. Whenever an
 //      alert record has `notified: false`, it sends a branded alert email
 //      (respecting `users/{uid}/settings/email_notifications`) and flips
 //      `notified: true` so the same alert is never emailed twice.
@@ -163,20 +164,23 @@ async function sendResetEmail(email) {
    6. RTDB ALERT LISTENER
    ============================================================ */
 /*
-   We attach a single `on('value')` listener at the root of `users`. Every
-   change anywhere in that subtree (new alert, updated alert, notified-flag
-   write, settings change) triggers the callback and we re-scan for alerts
-   that still need emailing.
+   We attach `child_added` and `child_changed` listeners on `users`:
+
+    • `child_added`   fires once for every existing user at startup (this is
+      the initial scan) and again for each newly registered user.
+    • `child_changed` fires whenever anything inside ONE user's subtree changes
+      (new alert, notified-flag write, history write, settings change) and
+      delivers only that user's data, instead of re-reading every user.
 
    Two safeguards prevent duplicate emails:
 
-   • `inFlightAlerts` — a synchronous Set keyed by `uid/deviceId/alertId`.
-     Once we start sending an alert, no other callback invocation can
-     dispatch the same alert again, even if the snapshot re-fires before
-     our `.set(notified, true)` round-trip completes.
+    • `inFlightAlerts` — a synchronous Set keyed by `uid/deviceId/alertId`.
+      Once we start sending an alert, no other callback invocation can
+      dispatch the same alert again, even if the snapshot re-fires before
+      our `.set(notified, true)` round-trip completes.
 
-   • `alert.notified` in RTDB — once we've successfully sent, we flip this
-     to `true`, so the next snapshot naturally skips the alert.
+    • `alert.notified` in RTDB — once we've successfully sent, we flip this
+      to `true`, so the next snapshot naturally skips the alert.
 */
 const inFlightAlerts = new Set();
 const alertDedupeKey = (uid, deviceId, alertKey) => `${uid}/${deviceId}/${alertKey}`;
@@ -206,66 +210,61 @@ async function sendAlertEmail({ uid, deviceId, alertKey, alert, recipientEmail, 
   }
 }
 
+/* Scan ONE user's subtree for alerts that still need emailing. */
+function processUserAlerts(uid, user) {
+  if (!user || typeof user !== 'object') return;
+
+  /* Dynamically read the recipient address */
+  const recipientEmail = user.email;
+  if (!recipientEmail) return;
+
+  /* Respect the user's email-notification preference. Missing setting
+     defaults to "on" so existing users keep receiving alerts. */
+  if ((user?.settings?.email_notifications ?? true) === false) return;
+
+  const now         = Date.now();
+  const lookbackMs  = config.alertLookbackSeconds * 1000;
+  const displayName = user.displayName || 'HydroTrack User';
+  const devices     = user.devices || {};
+
+  for (const [deviceId, deviceData] of Object.entries(devices)) {
+    const alerts = deviceData?.alerts;
+    if (!alerts || typeof alerts !== 'object') continue;
+
+    for (const [alertKey, alert] of Object.entries(alerts)) {
+      if (!alert || alert.notified) continue;
+
+      /* Skip alerts older than the lookback window to avoid flooding
+         users after extended downtime. */
+      const alertTs = Number(alert.timestamp || 0);
+      if (alertTs > 0 && (now - alertTs) > lookbackMs) continue;
+
+      const key = alertDedupeKey(uid, deviceId, alertKey);
+      if (inFlightAlerts.has(key)) continue;
+
+      inFlightAlerts.add(key);
+      sendAlertEmail({
+        uid,
+        deviceId,
+        alertKey,
+        alert,
+        recipientEmail,
+        displayName,
+      }).finally(() => inFlightAlerts.delete(key));
+    }
+  }
+}
+
 function attachAlertListener() {
-  const rootRef = db.ref('users');
+  const usersRef = db.ref('users');
 
-  rootRef.on(
-    'value',
-    (snapshot) => {
-      const users = snapshot.val();
-      if (!users || typeof users !== 'object') return;
+  const onUser  = (snapshot) => processUserAlerts(snapshot.key, snapshot.val());
+  const onError = (err) => console.error('[rtdb] listener error:', err?.message || err);
 
-      const now        = Date.now();
-      const lookbackMs = config.alertLookbackSeconds * 1000;
+  usersRef.on('child_added',   onUser, onError);
+  usersRef.on('child_changed', onUser, onError);
 
-      for (const [uid, user] of Object.entries(users)) {
-        if (!user || typeof user !== 'object') continue;
-
-        /* Dynamically read the recipient address */
-        const recipientEmail = user.email;
-        if (!recipientEmail) continue;
-
-        /* Respect the user's email-notification preference. Missing setting
-           defaults to "on" so existing users keep receiving alerts. */
-        if ((user?.settings?.email_notifications ?? true) === false) continue;
-
-        const displayName = user.displayName || 'HydroTrack User';
-        const devices     = user.devices || {};
-
-        for (const [deviceId, deviceData] of Object.entries(devices)) {
-          const alerts = deviceData?.alerts;
-          if (!alerts || typeof alerts !== 'object') continue;
-
-          for (const [alertKey, alert] of Object.entries(alerts)) {
-            if (!alert || alert.notified) continue;
-
-            /* Skip alerts older than the lookback window to avoid flooding
-               users after extended downtime. */
-            const alertTs = Number(alert.timestamp || 0);
-            if (alertTs > 0 && (now - alertTs) > lookbackMs) continue;
-
-            const key = alertDedupeKey(uid, deviceId, alertKey);
-            if (inFlightAlerts.has(key)) continue;
-
-            inFlightAlerts.add(key);
-            sendAlertEmail({
-              uid,
-              deviceId,
-              alertKey,
-              alert,
-              recipientEmail,
-              displayName,
-            }).finally(() => inFlightAlerts.delete(key));
-          }
-        }
-      }
-    },
-    (err) => {
-      console.error('[rtdb] listener error:', err?.message || err);
-    },
-  );
-
-  console.log('[rtdb] alert listener attached to /users');
+  console.log('[rtdb] alert listener attached to /users (child_added + child_changed)');
 }
 
 /* ============================================================

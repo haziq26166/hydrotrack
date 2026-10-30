@@ -1,3 +1,4 @@
+
 # Dependencies
 node_modules
 
@@ -7,10 +8,9 @@ dist
 # Environment / Secret Files
 .env
 .env.local
-.txt
+repomix-output*.txt
 
 # AI Context / Temporary Files
-repomix-output.txt
 
 # OS Files
 .DS_Store

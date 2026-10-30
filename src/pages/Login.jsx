@@ -3,9 +3,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FaEnvelope, FaLock } from 'react-icons/fa6';
 import { FcGoogle } from 'react-icons/fc';
 import {
-  auth, database, ref, get, set, googleProvider,
+  auth, googleProvider,
   signInWithEmailAndPassword, signInWithPopup,
 } from '@/services/firebase';
+import { ensureUserMirror } from '@/lib/userMirror';
 import { useAuth } from '@/context/AuthContext';
 import { AuthShell, authLinkCls } from '@/components/layout/AuthShell';
 import { FloatingInput } from '@/components/ui/FloatingInput';
@@ -132,21 +133,22 @@ export default function Login() {
 
 /* ---------- Helpers ---------- */
 function pretty(err) {
-  return (err?.message || 'Something went wrong.').replace('Firebase: ', '');
-}
-
-export async function ensureUserMirror(user) {
-  if (!user) return;
-  const emailSnap = await get(ref(database, `users/${user.uid}/email`));
-  if (!emailSnap.exists() && user.email) {
-    await set(ref(database, `users/${user.uid}/email`), user.email);
-  }
-  const nameSnap = await get(ref(database, `users/${user.uid}/displayName`));
-  if (!nameSnap.exists() && user.displayName) {
-    await set(ref(database, `users/${user.uid}/displayName`), user.displayName);
-  }
-  const settingsSnap = await get(ref(database, `users/${user.uid}/settings`));
-  if (!settingsSnap.exists()) {
-    await set(ref(database, `users/${user.uid}/settings`), { email_notifications: true });
+  switch (err?.code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      /* One generic message so account existence is never revealed. */
+      return 'Incorrect email or password.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a moment and try again.';
+    case 'auth/network-request-failed':
+      return 'Network error, please try again.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return ''; /* user cancelled the Google popup — show nothing */
+    default:
+      return (err?.message || 'Something went wrong.').replace('Firebase: ', '');
   }
 }

@@ -29,6 +29,32 @@ const DEFAULT_FORM = {
   hammer_cooldown_seconds: 30,
 };
 
+/* Returns an error message, or null when every value is acceptable. */
+function validateSettings(f) {
+  const isNum = (v) => Number.isFinite(parseFloat(v));
+
+  if (![f.calibration_factor, f.max_flow_threshold, f.hammer_threshold_lpm].every(isNum)) {
+    return 'Please enter a valid threshold value.';
+  }
+  if (parseFloat(f.calibration_factor) <= 0)   return 'Calibration factor must be greater than 0.';
+  if (parseFloat(f.max_flow_threshold) <= 0)   return 'High flow threshold must be greater than 0.';
+  if (parseFloat(f.hammer_threshold_lpm) <= 0) return 'Spike threshold must be greater than 0.';
+
+  if (!(parseInt(f.max_continuous_minutes, 10) >= 1)) {
+    return 'Max continuous flow must be at least 1 minute.';
+  }
+  if (!(parseInt(f.off_hours_min_duration_seconds, 10) >= 5)) {
+    return 'Minimum flow duration must be at least 5 seconds.';
+  }
+  if (!(parseInt(f.hammer_cooldown_seconds, 10) >= 5)) {
+    return 'Alert cooldown must be at least 5 seconds.';
+  }
+  if (f.off_hours_start === f.off_hours_end) {
+    return 'Quiet window start and end must differ.';
+  }
+  return null;
+}
+
 export default function Settings() {
   const { user } = useAuth();
   const { devices } = useDevices(user.uid);
@@ -102,9 +128,8 @@ export default function Settings() {
     e.preventDefault();
     if (!deviceId) return;
 
-    if (form.off_hours_start === form.off_hours_end) {
-      return setToast({ type: 'error', message: 'Quiet window start and end must differ.' });
-    }
+    const problem = validateSettings(form);
+    if (problem) return setToast({ type: 'error', message: problem });
 
     setSaving(true);
     try {

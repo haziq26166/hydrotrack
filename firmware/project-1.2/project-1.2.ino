@@ -16,6 +16,12 @@
 
    Water hammer uses RAW readings because the median-of-5 filter suppresses
    single-tick anomalies — which is exactly what a hammer event produces.
+
+   Flow conversion (YF-S401)
+   -------------------------
+   The sensor outputs  f(Hz) = calibrationFactor × Q(LPM)  with a default
+   calibrationFactor of 98 (Hz per LPM).  Therefore
+       Q (LPM) = (pulses / elapsed_seconds) / calibrationFactor
    ============================================================================ */
 
 #include <WiFi.h>
@@ -214,6 +220,9 @@ bool isWithinOffHours(int currentMins, int startMins, int endMins) {
    7. FIREBASE HELPERS
    ========================================== */
 
+/* Round to 2 decimals so stored values match the DECIMAL(x,2) data dictionary */
+static float round2(float v) { return roundf(v * 100.0f) / 100.0f; }
+
 String liveDataPath()  { return "/devices/" + String(DEVICE_ID) + "/live_data"; }
 String heartbeatPath() { return "/devices/" + String(DEVICE_ID) + "/live_data/last_seen"; }
 String settingsPath()  { return "/devices/" + String(DEVICE_ID) + "/settings"; }
@@ -319,8 +328,8 @@ bool persistDailyHistory(const String &dateStr, bool closed) {
     String path = base + "/history/" + dateStr;
 
     FirebaseJson json;
-    json.set("total_volume",      todaysUsageLiters);
-    json.set("highest_flow_rate", maxFlowRateToday);
+    json.set("total_volume",      round2(todaysUsageLiters));
+    json.set("highest_flow_rate", round2(maxFlowRateToday));
     json.set("date",              dateStr);
     json.set("last_updated/.sv",  "timestamp");
     if (closed) json.set("closed_at/.sv", "timestamp");
@@ -378,7 +387,7 @@ void tryRestoreFromHistory(unsigned long now) {
 
 /* ---------- Alert log + live data ------------------------------------ */
 
-void logAlertToFirebase(const String &alertType) {
+void logAlertToFirebase(const String &alertType, float flowValue) {
     if (!Firebase.ready()) return;
 
     String base = userDeviceBase();
@@ -391,7 +400,7 @@ void logAlertToFirebase(const String &alertType) {
     alertJson.set("type",          alertType);
     alertJson.set("time",          getCurrentTimeString());
     alertJson.set("date",          getCurrentDateString());
-    alertJson.set("flow_rate",     flowRate);
+    alertJson.set("flow_rate",     round2(flowValue));
     alertJson.set("notified",      false);
     alertJson.set("timestamp/.sv", "timestamp");
 
@@ -406,13 +415,17 @@ void pushLiveData() {
     if (!Firebase.ready()) return;
 
     FirebaseJson json;
-    json.set("current_flow",      flowRate);
-    json.set("todays_usage",      todaysUsageLiters);
-    json.set("highest_flow_rate", maxFlowRateToday);
+    json.set("current_flow",      round2(flowRate));
+    json.set("todays_usage",      round2(todaysUsageLiters));
+    json.set("highest_flow_rate", round2(maxFlowRateToday));
     json.set("leak_status",       leakStatus);
     json.set("timestamp/.sv",     "timestamp");
 
-    Firebase.RTDB.setJSON(&fbdo, liveDataPath().c_str(), &json);
+    /* updateNode MERGES into live_data, so the last_seen value written by
+       pushHeartbeat() is preserved (setJSON would replace the whole node). */
+    if (!Firebase.RTDB.updateNode(&fbdo, liveDataPath().c_str(), &json)) {
+        Serial.println("[Live] Push failed: " + fbdo.errorReason());
+    }
 }
 
 void pushHeartbeat() {
@@ -624,7 +637,8 @@ void loop() {
         if (elapsed == 0) elapsed = 1;
 
         /* ---- Raw reading ---- */
-        rawFlowRate = (currentPulses * 60000.0f) / (calibrationFactor * (float)elapsed);
+        /* YF-S401: f(Hz) = calibrationFactor × Q(LPM)  =>  Q = (pulses / seconds) / calibrationFactor */
+        rawFlowRate = ((float)currentPulses * 1000.0f) / (calibrationFactor * (float)elapsed);
 
         /* ---- Median-of-5 filter → filtered rate used everywhere else ---- */
         flowRate = medianFilter(rawFlowRate);
@@ -671,7 +685,7 @@ void loop() {
                 if (alertsEnabled && hammerAlertsEnabled && cooldownOk) {
                     Serial.printf("[Hammer] Spike %.1f LPM over %d tick(s)\n",
                                   hammerSpikePeak, hammerSpikeTicks);
-                    logAlertToFirebase("Water Hammer Detected");
+                    logAlertToFirebase("Water Hammer Detected", hammerSpikePeak);
                     lastHammerAlertMs = now;
                 }
             }
@@ -705,7 +719,7 @@ void loop() {
                 if (!alertLoggedForCurrentEvent) {
                     logAlertToFirebase(flowRate > maxFlowThreshold
                         ? "High Flow Alert"
-                        : "Continuous Leak Warning");
+                        : "Continuous Leak Warning", flowRate);
                     alertLoggedForCurrentEvent = true;
                 }
             } else {
@@ -720,7 +734,7 @@ void loop() {
             && !offHoursAlertLogged
             && flowStartedInOffHours
             && continuousFlowSeconds > offHoursGraceSeconds) {
-            logAlertToFirebase("Off-Hours Flow Detected");
+            logAlertToFirebase("Off-Hours Flow Detected", flowRate);
             offHoursAlertLogged = true;
         }
 

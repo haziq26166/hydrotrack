@@ -4,11 +4,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node index.mjs",
-    "test-smtp": "node test-smtp.mjs"
+    "start": "node notification-server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "nodemailer": "^6.9.13"
+    "firebase-admin": "^14.5.0",
+    "nodemailer": "^10.2.1"
   }
 }

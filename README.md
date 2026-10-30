@@ -106,7 +106,7 @@ Each alert is stored in Firebase with its type, flow rate, date and time. The no
 | **ESP32 (38-pin)** | Microcontroller with built-in Wi-Fi; reads the sensor and sends data to Firebase |
 | **YF-S401 Water Flow Sensor** | Hall-effect in-line flow sensor; the default calibration factor used by the app is `98.0` (Hz per LPM) |
 
-> 📝 The ESP32 firmware is kept in a local `firmware/` folder that is excluded from this repository (see `.gitignore`).
+> 📝 The ESP32 firmware is in `firmware/project-1.2/`. Copy `secrets.example.h` to `secrets.h` (git-ignored) and fill in your Wi-Fi portal, Firebase and device values before flashing.
 > The Welcome page also describes a captive-portal Wi-Fi setup for the device, and device IDs follow the format `WFS-XXXX` (e.g. `WFS-A1B2`).
 
 ---
@@ -172,6 +172,7 @@ devices/
       highest_flow_rate: <LPM>
       leak_status: "NORMAL" | "ALERT" | "LEAK"
       timestamp: <ms since epoch>     # used for online/offline detection
+      last_seen: <seconds since epoch> # device heartbeat (every 30 s)
     settings/
       calibration_factor, max_flow_threshold, max_continuous_minutes,
       off_hours_alerts_enabled, off_hours_start, off_hours_end,
@@ -180,7 +181,7 @@ devices/
 
 users/
   {uid}/
-    email, displayName
+    email, displayName, createdAt, default_device_id
     settings/
       email_notifications: true | false
     user_devices/
@@ -219,7 +220,7 @@ cd hydrotrack
 ### 2. Install dependencies
 
 ```bash
-# Frontend (also provides firebase-admin and nodemailer used by the server)
+# Frontend
 npm install
 
 # Notification server

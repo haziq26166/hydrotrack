@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FaLink, FaHashtag, FaTag } from 'react-icons/fa6';
 import {
-  database, ref, set, get, child,
+  database, ref, update, get, child,
 } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/ui/Modal';
@@ -47,14 +47,19 @@ export function AddDeviceModal({ open, onClose }) {
         return setError('You have already linked this device.');
       }
 
-      await set(ref(database, `users/${user.uid}/user_devices/${id}`), {
-        name, linked_at: Date.now(),
+      /* One atomic write: both paths succeed together or neither does. */
+      await update(ref(database), {
+        [`users/${user.uid}/user_devices/${id}`]: { name, linked_at: Date.now() },
+        [`devices/${id}/claimed_by`]: user.uid,
       });
-      await set(ref(database, `devices/${id}/claimed_by`), user.uid);
 
       onClose?.();
     } catch (err) {
-      setError((err.message || '').replace('Firebase: ', ''));
+      setError(
+        err.code === 'PERMISSION_DENIED'
+          ? 'This device is already linked to another account.'
+          : (err.message || '').replace('Firebase: ', ''),
+      );
     } finally {
       setBusy(false);
     }

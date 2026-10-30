@@ -3,10 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaUser, FaUserPlus } from 'react-icons/fa6';
 import { FcGoogle } from 'react-icons/fc';
 import {
-  auth, database, ref, set, get,
+  auth,
   createUserWithEmailAndPassword, updateProfile,
   googleProvider, signInWithPopup,
 } from '@/services/firebase';
+import { ensureUserMirror } from '@/lib/userMirror';
 import { useAuth } from '@/context/AuthContext';
 import { AuthShell, authLinkCls } from '@/components/layout/AuthShell';
 import { FloatingInput } from '@/components/ui/FloatingInput';
@@ -28,33 +29,6 @@ function validateEmail(raw) {
   if (!v.includes('@')) return 'Email must contain an @ sign.';
   if (!EMAIL_RE.test(v)) return 'Enter a valid email address (name@example.com).';
   return null;
-}
-
-/* ============================================================
-   RTDB MIRROR — idempotent, safe to call for both auth methods
-   ============================================================ */
-async function ensureUserMirror(user) {
-  if (!user) return;
-
-  const emailSnap = await get(ref(database, `users/${user.uid}/email`));
-  if (!emailSnap.exists() && user.email) {
-    await set(ref(database, `users/${user.uid}/email`), user.email);
-  }
-
-  const nameSnap = await get(ref(database, `users/${user.uid}/displayName`));
-  if (!nameSnap.exists() && user.displayName) {
-    await set(ref(database, `users/${user.uid}/displayName`), user.displayName);
-  }
-
-  const createdSnap = await get(ref(database, `users/${user.uid}/createdAt`));
-  if (!createdSnap.exists()) {
-    await set(ref(database, `users/${user.uid}/createdAt`), Date.now());
-  }
-
-  const settingsSnap = await get(ref(database, `users/${user.uid}/settings`));
-  if (!settingsSnap.exists()) {
-    await set(ref(database, `users/${user.uid}/settings`), { email_notifications: true });
-  }
 }
 
 export default function Register() {
@@ -122,7 +96,13 @@ export default function Register() {
 
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError((err.message || '').replace('Firebase: ', ''));
+      setError(
+        err.code === 'auth/email-already-in-use'
+          ? 'An account with this email already exists.'
+          : err.code === 'auth/network-request-failed'
+            ? 'Network error, please try again.'
+            : (err.message || '').replace('Firebase: ', ''),
+      );
     } finally {
       setBusy(false);
     }
@@ -139,7 +119,11 @@ export default function Register() {
       await ensureUserMirror(cred.user);
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError((err.message || '').replace('Firebase: ', ''));
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        setError('');
+      } else {
+        setError((err.message || '').replace('Firebase: ', ''));
+      }
     } finally {
       setGoogleBusy(false);
     }
