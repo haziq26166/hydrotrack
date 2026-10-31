@@ -2,12 +2,12 @@
   "rules": {
     "devices": {
       "$deviceId": {
-        ".read": "auth != null && (!data.child('claimed_by').exists() || data.child('claimed_by').val() === auth.uid || auth.uid === 'FIRMWARE_UID')",
+        ".read": "auth != null",
         "claimed_by": {
           ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || (data.val() === auth.uid && !newData.exists()))"
         },
         "live_data": {
-          ".write": "auth.uid === 'FIRMWARE_UID'"
+          ".write": "auth != null && (auth.uid === 'FIRMWARE_UID' || auth.token.email === 'hydrotrack@gmail.com')"
         },
         "settings": {
           ".write": "auth != null && auth.uid === data.parent().child('claimed_by').val()"
@@ -19,8 +19,8 @@
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
         "devices": {
-          ".read": "auth.uid === 'FIRMWARE_UID'",
-          ".write": "auth.uid === 'FIRMWARE_UID'"
+          ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'hydrotrack@gmail.com')",
+          ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'hydrotrack@gmail.com')"
         }
       }
     }
