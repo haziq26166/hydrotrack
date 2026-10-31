@@ -236,7 +236,8 @@ function processUserAlerts(uid, user) {
 
       /* Skip alerts older than the lookback window to avoid flooding
          users after extended downtime. */
-      const alertTs = Number(alert.timestamp || 0);
+      const rawTs = Number(alert.timestamp || 0);
+      const alertTs = rawTs > 0 ? rawTs - 28800000 : 0; // Reverse the 8-hour shift
       if (alertTs > 0 && (now - alertTs) > lookbackMs) continue;
 
       const key = alertDedupeKey(uid, deviceId, alertKey);

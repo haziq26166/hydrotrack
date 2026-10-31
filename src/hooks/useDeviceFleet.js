@@ -65,8 +65,8 @@ export function useDeviceFleet(uid) {
     return Object.values(devices).map((d) => {
       const live = liveMap[d.id];
       const ready = live !== undefined;
-      const ts = Number(live?.timestamp || 0);
-
+      const rawTs = Number(live?.timestamp || 0);
+      const ts = rawTs > 0 ? rawTs - 28800000 : 0; // Reverse the 8-hour shift
       const isOnline = ready && ts > 0 && t - ts < STALE_THRESHOLD_MS;
       const secondsAgo = ts > 0 ? Math.max(0, Math.floor((t - ts) / 1000)) : null;
       const rawStatus = String(live?.leak_status ?? 'NORMAL').toUpperCase();

@@ -21,12 +21,12 @@ export function useDeviceStatus(live) {
     return () => clearInterval(id);
   }, []);
 
-  const ts = Number(live?.timestamp || 0);
-  if (!ts) {
+  const rawTs = Number(live?.timestamp || 0);
+  if (!rawTs) {
     return { isOnline: false, secondsAgo: null };
   }
-
-  const secondsAgo = Math.floor((now - ts) / 1000);
+  const ts = rawTs - 28800000; // Reverse the 8-hour shift
+  const secondsAgo = Math.max(0, Math.floor((now - ts) / 1000));
   const isOnline   = (now - ts) < STALE_THRESHOLD_MS;
 
   return { isOnline, secondsAgo };
