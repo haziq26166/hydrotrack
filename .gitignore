@@ -17,7 +17,7 @@ repomix-output*.txt
 Thumbs.db
 
 # Firmware
-firmware/project-1.2/secrets.h
+firmware/project-1.0/secrets.h
 
 # Dispatcher
 dispatcher/node_modules/
