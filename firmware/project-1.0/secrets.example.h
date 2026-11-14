@@ -5,7 +5,7 @@
 // Firebase Project Configuration
 // ==========================================
 // Replace with your Web API Key from Firebase Project Settings
-#define FIREBASE_API_KEY "AIzaSy_YOUR_API_KEY_HERE"
+#define FIREBASE_API_KEY "YOUR_API_KEY_HERE"
 
 // Replace with your Realtime Database URL
 #define FIREBASE_DATABASE_URL "https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app/"

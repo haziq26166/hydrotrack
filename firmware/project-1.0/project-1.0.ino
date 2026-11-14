@@ -3,6 +3,7 @@
 #include <Firebase_ESP_Client.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <time.h>
 #include "secrets.h"
 
 // Token and RTDB helper inclusions from Firebase library
@@ -11,6 +12,11 @@
 
 #define SENSOR_PIN 32
 #define BUTTON_PIN 4
+
+// How often today's total is saved to the history record (milliseconds)
+#define HISTORY_INTERVAL_MS 60000UL
+// How often device settings are re-read from Firebase (milliseconds)
+#define SETTINGS_INTERVAL_MS 30000UL
 
 // --- Firebase Objects ---
 FirebaseData fbdo;
@@ -35,24 +41,75 @@ int max_continuous_minutes = 30;
 float hammer_threshold_lpm = 60.0;
 int hammer_cooldown_seconds = 30;
 
+// --- Alert switches and off-hours rule (synced from Firebase) ---
+bool alerts_enabled = true;                 // master switch for all alerts
+bool hammer_alerts_enabled = true;          // water hammer detection on/off
+bool off_hours_alerts_enabled = true;       // off-hours (quiet window) detection on/off
+String off_hours_start = "00:00";           // quiet window start (HH:MM)
+String off_hours_end = "06:00";             // quiet window end (HH:MM), may cross midnight
+int off_hours_min_duration_seconds = 60;    // sustained flow needed inside the window
+
 float current_flow = 0.0;
 float todays_usage = 0.0;
 float highest_flow = 0.0;
 String leak_status = "NORMAL";
 
 unsigned long lastSettingsSync = 0;
+bool settingsSynced = false;
 unsigned long currentContinuousStart = 0;
+unsigned long offHoursFlowStart = 0;
 unsigned long lastHammerAlert = 0;
 bool continuousAlertSent = false;
+
+// --- Daily history state ---
+String currentDateKey = "";        // YYYY-MM-DD of the day being accumulated
+bool historyRestored = false;      // true once today's saved total was read back after boot
+unsigned long lastHistoryWrite = 0;
 
 // Interrupt Service Routine for Flow Sensor
 void IRAM_ATTR pulseCounter() {
     pulseCount++;
 }
 
+// ---------------------------------------------------------------------
+// Time helpers (NTP time already includes the UTC+8 offset)
+// ---------------------------------------------------------------------
+bool getLocalTm(struct tm &ti) {
+    if (!timeClient.isTimeSet()) return false;
+    time_t raw = (time_t)timeClient.getEpochTime();
+    gmtime_r(&raw, &ti);
+    return true;
+}
+
+String makeDateKey(const struct tm &ti) {
+    char buf[11];
+    strftime(buf, sizeof(buf), "%Y-%m-%d", &ti); // e.g. "2026-03-12"
+    return String(buf);
+}
+
+// Converts "HH:MM" into minutes since midnight, or -1 when invalid
+int parseMinutes(const String &hhmm) {
+    int colon = hhmm.indexOf(':');
+    if (colon < 1) return -1;
+    int h = hhmm.substring(0, colon).toInt();
+    int m = hhmm.substring(colon + 1).toInt();
+    if (h < 0 || h > 23 || m < 0 || m > 59) return -1;
+    return h * 60 + m;
+}
+
+// True when the given minute of the day is inside the quiet window.
+// Handles windows that cross midnight (for example 22:00 -> 06:00).
+bool inOffHours(int nowMinutes) {
+    int s = parseMinutes(off_hours_start);
+    int e = parseMinutes(off_hours_end);
+    if (s < 0 || e < 0 || s == e) return false;
+    if (s < e) return (nowMinutes >= s && nowMinutes < e);
+    return (nowMinutes >= s || nowMinutes < e);
+}
+
 void setup() {
     Serial.begin(115200);
-    
+
     // Pin setup
     pinMode(SENSOR_PIN, INPUT_PULLUP);
     pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -61,8 +118,8 @@ void setup() {
     // WiFiManager Setup (Captive Portal Provisioning)
     WiFiManager wm;
     // Set a timeout so it doesn't wait forever if AP is untouched
-    wm.setConfigPortalTimeout(180); 
-    
+    wm.setConfigPortalTimeout(180);
+
     Serial.println("Connecting to WiFi...");
     bool res = wm.autoConnect("HydroTrack_Setup", "password123");
     if (!res) {
@@ -82,7 +139,7 @@ void setup() {
     auth.user.password = FIREBASE_PASSWORD;
 
     // Optional: token status callback for debugging
-    config.token_status_callback = tokenStatusCallback; 
+    config.token_status_callback = tokenStatusCallback;
 
     Firebase.begin(&config, &auth);
     Firebase.reconnectWiFi(true);
@@ -116,10 +173,13 @@ void loop() {
         // Flow rate in L/min = Pulse frequency (Hz) / Calibration Factor
         // Since we evaluate over 1 second, frequency equals total pulses.
         if (calibration_factor > 0) {
-            current_flow = (float)pulses / calibration_factor; 
+            current_flow = (float)pulses / calibration_factor;
         } else {
             current_flow = 0.0;
         }
+
+        // Start a new daily record when the date changes (also saves the finished day)
+        handleDayRollover();
 
         // Add to total usage (Volume = Flow(LPM) / 60 seconds)
         todays_usage += (current_flow / 60.0);
@@ -128,62 +188,113 @@ void loop() {
             highest_flow = current_flow;
         }
 
-        // Track continuous flow time
+        // Track continuous flow time and off-hours flow time
         if (current_flow > 0) {
             if (currentContinuousStart == 0) {
                 currentContinuousStart = millis();
                 continuousAlertSent = false;
             }
+
+            struct tm ti;
+            if (off_hours_alerts_enabled && getLocalTm(ti) && inOffHours(ti.tm_hour * 60 + ti.tm_min)) {
+                if (offHoursFlowStart == 0) offHoursFlowStart = millis();
+            } else {
+                offHoursFlowStart = 0;
+            }
         } else {
             currentContinuousStart = 0;
+            offHoursFlowStart = 0;
             continuousAlertSent = false;
             leak_status = "NORMAL";
         }
 
         checkAlerts();
         pushLiveData();
+
+        // Save today's total to the history record once a minute
+        if (millis() - lastHistoryWrite >= HISTORY_INTERVAL_MS) {
+            lastHistoryWrite = millis();
+            pushHistory(currentDateKey, false);
+        }
     }
 
-    // 3. Sync Settings from Firebase every 30 seconds
-    if (millis() - lastSettingsSync > 30000) {
+    // 3. Sync Settings from Firebase: immediately once Firebase is ready, then every 30 seconds
+    if (Firebase.ready() && (!settingsSynced || millis() - lastSettingsSync > SETTINGS_INTERVAL_MS)) {
         lastSettingsSync = millis();
-        if (Firebase.ready()) {
-            syncSettings();
-        }
+        settingsSynced = true;
+        syncSettings();
+    }
+}
+
+// ---------------------------------------------------------------------
+// Daily rollover: close yesterday's record, reset today's counters
+// ---------------------------------------------------------------------
+void handleDayRollover() {
+    struct tm ti;
+    if (!getLocalTm(ti)) return; // clock not set yet
+
+    String key = makeDateKey(ti);
+
+    if (currentDateKey == "") {
+        currentDateKey = key; // first valid time after boot
+        return;
+    }
+
+    if (key != currentDateKey) {
+        // Finalise the finished day, then start fresh
+        pushHistory(currentDateKey, true);
+        todays_usage = 0.0;
+        highest_flow = 0.0;
+        currentDateKey = key;
+        historyRestored = true; // a new day has nothing to restore
+        lastHistoryWrite = millis();
     }
 }
 
 void checkAlerts() {
     if (claimed_by == "") return; // Need an owner to send alerts to
 
+    // Master switch: keep recording flow, but raise no alerts
+    if (!alerts_enabled) {
+        leak_status = "NORMAL";
+        return;
+    }
+
+    struct tm ti;
+    if (!getLocalTm(ti)) return; // Need a valid clock for the alert date and time
+
     unsigned long epoch = timeClient.getEpochTime();
-    
-    // Formatting basic date/time for the DB payload
-    time_t rawtime = (time_t)epoch;
-    struct tm * ti = localtime(&rawtime);
-    
+
     char dateStr[20];
     char timeStr[10];
-    strftime(dateStr, sizeof(dateStr), "%d %b %Y", ti); // e.g. "12 Mar 2026"
-    strftime(timeStr, sizeof(timeStr), "%H:%M", ti);    // e.g. "14:05"
+    strftime(dateStr, sizeof(dateStr), "%d %b %Y", &ti); // e.g. "12 Mar 2026"
+    strftime(timeStr, sizeof(timeStr), "%H:%M", &ti);    // e.g. "14:05"
+
+    bool hammerSpike = hammer_alerts_enabled && (current_flow >= hammer_threshold_lpm);
+
+    bool continuousLeak = currentContinuousStart > 0 &&
+        (millis() - currentContinuousStart) > ((unsigned long)max_continuous_minutes * 60000UL);
+
+    bool offHoursLeak = off_hours_alerts_enabled && offHoursFlowStart > 0 &&
+        (millis() - offHoursFlowStart) >= ((unsigned long)off_hours_min_duration_seconds * 1000UL);
 
     // A. Water Hammer Detection (Spikes)
-    if (current_flow >= hammer_threshold_lpm) {
-        if (millis() - lastHammerAlert > (hammer_cooldown_seconds * 1000)) {
+    if (hammerSpike) {
+        if (millis() - lastHammerAlert > ((unsigned long)hammer_cooldown_seconds * 1000UL)) {
             sendAlert("Water Hammer Detected", current_flow, String(dateStr), String(timeStr), epoch);
             lastHammerAlert = millis();
             leak_status = "ALERT";
         }
     }
-    // B. Continuous Leak Detection
-    else if (currentContinuousStart > 0 && (millis() - currentContinuousStart) > (max_continuous_minutes * 60000)) {
+    // B. Continuous Leak Detection (long run of flow, or sustained flow in the quiet window)
+    else if (continuousLeak || offHoursLeak) {
         leak_status = "LEAK";
         if (!continuousAlertSent) {
             sendAlert("Continuous Leak", current_flow, String(dateStr), String(timeStr), epoch);
             continuousAlertSent = true;
         }
     }
-    // C. Standard High Flow
+    // C. Standard High Flow (status only, no alert record)
     else if (current_flow >= max_flow_threshold) {
         leak_status = "ALERT";
     }
@@ -199,7 +310,7 @@ void sendAlert(String type, float flowRate, String dateStr, String timeStr, unsi
     json.set("timestamp", (double)(ts * 1000ULL)); // JS expects epoch in ms
     json.set("notified", false);
     json.set("acknowledged", false);
-    
+
     Firebase.RTDB.pushJSON(&fbdo, path, &json);
     Serial.println("Pushed Alert: " + type);
 }
@@ -213,19 +324,45 @@ void pushLiveData() {
     json.set("todays_usage", todays_usage);
     json.set("highest_flow_rate", highest_flow);
     json.set("leak_status", leak_status);
-    json.set("timestamp", (double)(timeClient.getEpochTime() * 1000ULL)); 
+    json.set("timestamp", (double)(timeClient.getEpochTime() * 1000ULL));
 
     Firebase.RTDB.setJSON(&fbdo, path, &json);
 }
 
+// Saves (or finalises) the daily usage record under the owner's account.
+// Path: users/{uid}/devices/{deviceId}/history/{YYYY-MM-DD}
+void pushHistory(const String &dateKey, bool closed) {
+    if (claimed_by == "" || dateKey == "") return; // history belongs to an owner
+    if (!historyRestored) return;                  // never overwrite before reading back today's total
+    if (!Firebase.ready()) return;
+    if (todays_usage <= 0.0) return;               // nothing used yet
+
+    String path = "/users/" + claimed_by + "/devices/" + String(DEVICE_ID) + "/history/" + dateKey;
+    double nowMs = (double)(timeClient.getEpochTime() * 1000ULL);
+
+    FirebaseJson json;
+    json.set("date", dateKey);
+    json.set("total_volume", roundf(todays_usage * 100.0f) / 100.0f);
+    json.set("highest_flow_rate", roundf(highest_flow * 100.0f) / 100.0f);
+    json.set("last_updated", nowMs);
+    if (closed) {
+        json.set("closed_at", nowMs);
+    }
+
+    Firebase.RTDB.updateNode(&fbdo, path, &json);
+}
+
 void syncSettings() {
     String path = "/devices/" + String(DEVICE_ID);
-    
+
     // Check who claimed the device
     if (Firebase.RTDB.getString(&fbdo, path + "/claimed_by")) {
         claimed_by = fbdo.stringData();
+    } else if (fbdo.httpCode() == 200) {
+        // The node exists but is empty: the device has been unlinked
+        claimed_by = "";
     }
-    
+
     // Sync numerical settings
     if (Firebase.RTDB.getFloat(&fbdo, path + "/settings/calibration_factor")) {
         calibration_factor = fbdo.floatData();
@@ -241,5 +378,49 @@ void syncSettings() {
     }
     if (Firebase.RTDB.getInt(&fbdo, path + "/settings/hammer_cooldown_seconds")) {
         hammer_cooldown_seconds = fbdo.intData();
+    }
+
+    // Sync alert switches
+    if (Firebase.RTDB.getBool(&fbdo, path + "/settings/alerts_enabled")) {
+        alerts_enabled = fbdo.boolData();
+    }
+    if (Firebase.RTDB.getBool(&fbdo, path + "/settings/hammer_alerts_enabled")) {
+        hammer_alerts_enabled = fbdo.boolData();
+    }
+    if (Firebase.RTDB.getBool(&fbdo, path + "/settings/off_hours_alerts_enabled")) {
+        off_hours_alerts_enabled = fbdo.boolData();
+    }
+
+    // Sync off-hours window
+    if (Firebase.RTDB.getString(&fbdo, path + "/settings/off_hours_start")) {
+        off_hours_start = fbdo.stringData();
+    }
+    if (Firebase.RTDB.getString(&fbdo, path + "/settings/off_hours_end")) {
+        off_hours_end = fbdo.stringData();
+    }
+    if (Firebase.RTDB.getInt(&fbdo, path + "/settings/off_hours_min_duration_seconds")) {
+        off_hours_min_duration_seconds = fbdo.intData();
+    }
+
+    // After a reboot, read back what was already saved for today so the total does not restart from zero
+    if (!historyRestored && claimed_by != "" && currentDateKey != "") {
+        String hp = "/users/" + claimed_by + "/devices/" + String(DEVICE_ID) + "/history/" + currentDateKey;
+        bool ok = false;
+
+        if (Firebase.RTDB.getFloat(&fbdo, hp + "/total_volume")) {
+            float saved = fbdo.floatData();
+            if (saved > todays_usage) todays_usage = saved;
+            ok = true;
+        } else if (fbdo.httpCode() == 200) {
+            ok = true; // no record yet for today
+        }
+
+        if (ok) {
+            if (Firebase.RTDB.getFloat(&fbdo, hp + "/highest_flow_rate")) {
+                float savedPeak = fbdo.floatData();
+                if (savedPeak > highest_flow) highest_flow = savedPeak;
+            }
+            historyRestored = true;
+        }
     }
 }

@@ -107,7 +107,9 @@ export default function Devices() {
           type="button"
           onClick={() => setAsDefault(d.id)}
           title="Set as default device"
-          className="rounded-xl bg-white/70 px-2.5 py-1.5 text-[11px] font-bold text-ink-500 transition-colors hover:bg-white hover:text-hydro-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
+          className="rounded-xl bg-white/70 px-2.5 py-1.5 text-[11px] font-bold 
+          text-ink-500 transition-colors hover:bg-white hover:text-hydro-700 
+          focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
         >
           Set default
         </button>
@@ -120,7 +122,9 @@ export default function Devices() {
             onClick={() => setEditTarget({ id: d.id, name: d.name })}
             aria-label={`Edit ${d.name}`}
             title="Edit"
-            className="grid h-8 w-8 place-items-center rounded-xl bg-white/70 text-ink-500 transition-colors hover:bg-white hover:text-hydro-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
+            className="grid h-8 w-8 place-items-center rounded-xl bg-white/70 
+            text-ink-500 transition-colors hover:bg-white hover:text-hydro-700 
+            focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
           >
             <FaPencil size={11} />
           </button>
@@ -129,7 +133,9 @@ export default function Devices() {
             onClick={() => setDeleteTarget({ id: d.id, name: d.name })}
             aria-label={`Unlink ${d.name}`}
             title="Unlink"
-            className="grid h-8 w-8 place-items-center rounded-xl bg-white/70 text-ink-500 transition-colors hover:bg-coral-50 hover:text-coral-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
+            className="grid h-8 w-8 place-items-center rounded-xl bg-white/70 
+            text-ink-500 transition-colors hover:bg-coral-50 hover:text-coral-600 
+            focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
           >
             <FaTrashCan size={11} />
           </button>

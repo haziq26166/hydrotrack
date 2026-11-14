@@ -18,13 +18,15 @@ export function buildPasswordResetHtml(resetUrl) {
   return `<!DOCTYPE html>
 <html>
 <body style="font-family:Inter,Arial,sans-serif;background:#F8FAFC;padding:24px;margin:0;">
-  <div style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:16px;padding:32px;box-shadow:0 4px 15px rgba(0,0,0,0.05);">
+  <div style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:16px;padding:32px;
+  box-shadow:0 4px 15px rgba(0,0,0,0.05);">
     <h2 style="color:#0F172A;margin:0 0 12px 0;font-size:20px;">Reset your HydroTrack password</h2>
     <p style="color:#475569;margin:0 0 20px 0;line-height:1.5;">
       We received a request to reset the password for your account. Click the button below to choose a new one.
     </p>
     <p style="margin:24px 0;">
-      <a href="${url}" style="display:inline-block;background:#0EA5E9;color:#FFFFFF;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:12px;">
+      <a href="${url}" style="display:inline-block;background:#0EA5E9;color:#FFFFFF;text-decoration:none;
+      font-weight:600;padding:12px 24px;border-radius:12px;">
         Reset password
       </a>
     </p>

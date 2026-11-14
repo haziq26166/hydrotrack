@@ -172,7 +172,8 @@ export default function Welcome() {
           <ol className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map(({ n, title, desc }) => (
               <li key={n}>
-                <span className="mb-4 grid h-11 w-11 place-items-center rounded-2xl bg-hydro-gradient text-lg font-extrabold text-white shadow-brand">
+                <span className="mb-4 grid h-11 w-11 place-items-center rounded-2xl bg-hydro-gradient text-lg font-extrabold 
+                text-white shadow-brand">
                   {n}
                 </span>
                 <h3 className="text-base font-bold text-ink-900">{title}</h3>
@@ -207,7 +208,9 @@ export default function Welcome() {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
                 to={primaryTo}
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-sm font-bold text-hydro-700 shadow-glass transition-all duration-200 hover:-translate-y-px hover:bg-white/95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-sm font-bold 
+                text-hydro-700 shadow-glass transition-all duration-200 hover:-translate-y-px 
+                hover:bg-white/95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
               >
                 {primaryLabel} <FaArrowRight size={13} />
               </Link>
