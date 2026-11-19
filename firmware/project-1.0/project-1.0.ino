@@ -65,6 +65,8 @@ bool continuousAlertSent = false;
 String currentDateKey = "";        // YYYY-MM-DD of the day being accumulated
 bool historyRestored = false;      // true once today's saved total was read back after boot
 unsigned long lastHistoryWrite = 0;
+int historyRestoreAttempts = 0;    // failed attempts to read back today's saved total
+unsigned long lastDebugPrint = 0;  // throttles the Serial status line
 
 // Interrupt Service Routine for Flow Sensor
 void IRAM_ATTR pulseCounter() {
@@ -105,6 +107,15 @@ bool inOffHours(int nowMinutes) {
     if (s < 0 || e < 0 || s == e) return false;
     if (s < e) return (nowMinutes >= s && nowMinutes < e);
     return (nowMinutes >= s || nowMinutes < e);
+}
+
+// True when the last RTDB read failed only because the node does not exist yet
+// (for example, the first time ever today's history record is read).
+bool lastReadWasPathMissing() {
+    if (fbdo.httpCode() == 200 || fbdo.httpCode() == 404) return true;
+    String reason = fbdo.errorReason();
+    reason.toLowerCase();
+    return reason.indexOf("not exist") >= 0 || reason.indexOf("not found") >= 0;
 }
 
 void setup() {
@@ -210,6 +221,17 @@ void loop() {
 
         checkAlerts();
         pushLiveData();
+
+        // Status line every 10 seconds so the Serial Monitor shows what is going on
+        if (millis() - lastDebugPrint >= 10000UL) {
+            lastDebugPrint = millis();
+            Serial.printf("[STATUS] flow=%.2f L/min usage=%.3f L date=%s owner=%s restored=%s fbReady=%s\n",
+                current_flow, todays_usage,
+                currentDateKey.length() ? currentDateKey.c_str() : "(no clock yet)",
+                claimed_by.length() ? "yes" : "NO",
+                historyRestored ? "yes" : "NO",
+                Firebase.ready() ? "yes" : "NO");
+        }
 
         // Save today's total to the history record once a minute
         if (millis() - lastHistoryWrite >= HISTORY_INTERVAL_MS) {
@@ -349,7 +371,12 @@ void pushHistory(const String &dateKey, bool closed) {
         json.set("closed_at", nowMs);
     }
 
-    Firebase.RTDB.updateNode(&fbdo, path, &json);
+    if (Firebase.RTDB.updateNode(&fbdo, path, &json)) {
+        Serial.printf("[HISTORY] saved %s total_volume=%.2f L%s\n",
+            dateKey.c_str(), todays_usage, closed ? " (day closed)" : "");
+    } else {
+        Serial.println("[HISTORY] WRITE FAILED: " + fbdo.errorReason());
+    }
 }
 
 void syncSettings() {
@@ -411,8 +438,21 @@ void syncSettings() {
             float saved = fbdo.floatData();
             if (saved > todays_usage) todays_usage = saved;
             ok = true;
-        } else if (fbdo.httpCode() == 200) {
-            ok = true; // no record yet for today
+            Serial.printf("[HISTORY] restored saved total %.2f L for %s\n", saved, currentDateKey.c_str());
+        } else if (lastReadWasPathMissing()) {
+            ok = true; // no record yet for today: nothing to restore
+            Serial.println("[HISTORY] no record for today yet, starting fresh");
+        } else {
+            historyRestoreAttempts++;
+            Serial.printf("[HISTORY] restore failed (attempt %d, http %d): %s\n",
+                historyRestoreAttempts, fbdo.httpCode(), fbdo.errorReason().c_str());
+
+            // Do not stay blocked forever. After 5 failed attempts, carry on unless the
+            // failure is a permission problem (401/403), which must be fixed in the rules.
+            if (historyRestoreAttempts >= 5 && fbdo.httpCode() != 401 && fbdo.httpCode() != 403) {
+                ok = true;
+                Serial.println("[HISTORY] giving up on restore, history writes enabled anyway");
+            }
         }
 
         if (ok) {
