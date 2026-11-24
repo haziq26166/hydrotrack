@@ -290,10 +290,6 @@ npm start
 
 This is an individual project designed, built and maintained end to end by:
 
-**[Your Name]** · GitHub: [@your-github-username](https://github.com/your-github-username)
+**[Haziq]** · GitHub: [@haziq26166](https://github.com/haziq26166)
 
 ---
-
-## 📄 License
-
-Add your preferred license here (e.g. MIT).
