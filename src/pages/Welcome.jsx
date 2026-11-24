@@ -67,7 +67,7 @@ function HeroPreview() {
         <DeviceCard
           device={demo({ id: 'WFS-A1B2', name: 'Device A01', status: 'ok', flow, usage: 128.4 })}
         />
-        <div className="ml-6 sm:ml-10">
+        <div className="relative space-y-4">
           <DeviceCard
             device={demo({ id: 'WFS-C3D4', name: 'Device B22', status: 'leak', flow: 11.8, usage: 342.7, peak: 12.4 })}
           />

@@ -2,10 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FaEnvelope, FaLock } from 'react-icons/fa6';
 import { FcGoogle } from 'react-icons/fc';
-import {
-  auth, googleProvider,
-  signInWithEmailAndPassword, signInWithPopup,
-} from '@/services/firebase';
+import { auth, googleProvider, signInWithEmailAndPassword, signInWithPopup } from '@/services/firebase';
 import { ensureUserMirror } from '@/lib/userMirror';
 import { useAuth } from '@/context/AuthContext';
 import { AuthShell, authLinkCls } from '@/components/layout/AuthShell';
