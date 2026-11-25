@@ -14,20 +14,10 @@ import { Notice } from '@/components/ui/Notice';
 import { SwitchRow } from '@/components/ui/Switch';
 import { DeviceSelect } from '@/components/devices/DeviceSelect';
 import { Toast } from '@/components/ui/Toast';
+import { DEFAULT_DEVICE_SETTINGS } from '@/lib/deviceDefaults';
 
-const DEFAULT_FORM = {
-  alerts_enabled: true,
-  calibration_factor: 98.0,
-  max_flow_threshold: 35.0,
-  max_continuous_minutes: 30,
-  off_hours_alerts_enabled: true,
-  off_hours_start: '00:00',
-  off_hours_end: '06:00',
-  off_hours_min_duration_seconds: 60,
-  hammer_alerts_enabled: true,
-  hammer_threshold_lpm: 60.0,
-  hammer_cooldown_seconds: 30,
-};
+const DEFAULT_FORM = { ...DEFAULT_DEVICE_SETTINGS };
+const D = DEFAULT_DEVICE_SETTINGS;
 
 /* Returns an error message, or null when every value is acceptable. */
 function validateSettings(f) {
@@ -43,11 +33,9 @@ function validateSettings(f) {
   if (!(parseInt(f.max_continuous_minutes, 10) >= 1)) {
     return 'Max continuous flow must be at least 1 minute.';
   }
-  if (!(parseInt(f.off_hours_min_duration_seconds, 10) >= 5)) {
-    return 'Minimum flow duration must be at least 5 seconds.';
-  }
-  if (!(parseInt(f.hammer_cooldown_seconds, 10) >= 5)) {
-    return 'Alert cooldown must be at least 5 seconds.';
+  const graceMinutes = Number(f.off_hours_min_duration_minutes);
+  if (!Number.isInteger(graceMinutes) || graceMinutes < 1) {
+    return 'Minimum flow duration must be a whole number of minutes (at least 1).';
   }
   if (f.off_hours_start === f.off_hours_end) {
     return 'Quiet window start and end must differ.';
@@ -86,16 +74,20 @@ export default function Settings() {
     const s = snap.val() || {};
     setForm({
       alerts_enabled:                 s.alerts_enabled                 !== false,
-      calibration_factor:             s.calibration_factor             ?? 98.0,
-      max_flow_threshold:             s.max_flow_threshold             ?? 35.0,
-      max_continuous_minutes:         s.max_continuous_minutes         ?? 30,
+      calibration_factor:             s.calibration_factor             ?? D.calibration_factor,
+      max_flow_threshold:             s.max_flow_threshold             ?? D.max_flow_threshold,
+      max_continuous_minutes:         s.max_continuous_minutes         ?? D.max_continuous_minutes,
       off_hours_alerts_enabled:       s.off_hours_alerts_enabled       !== false,
-      off_hours_start:                s.off_hours_start                ?? '00:00',
-      off_hours_end:                  s.off_hours_end                  ?? '06:00',
-      off_hours_min_duration_seconds: s.off_hours_min_duration_seconds ?? 60,
+      off_hours_start:                s.off_hours_start                ?? D.off_hours_start,
+      off_hours_end:                  s.off_hours_end                  ?? D.off_hours_end,
+      /* Older devices stored this in seconds: show it as whole minutes (at least 1). */
+      off_hours_min_duration_minutes:
+        s.off_hours_min_duration_minutes
+        ?? (Number(s.off_hours_min_duration_seconds) > 0
+          ? Math.max(1, Math.ceil(Number(s.off_hours_min_duration_seconds) / 60))
+          : D.off_hours_min_duration_minutes),
       hammer_alerts_enabled:          s.hammer_alerts_enabled          !== false,
-      hammer_threshold_lpm:           s.hammer_threshold_lpm           ?? 60.0,
-      hammer_cooldown_seconds:        s.hammer_cooldown_seconds        ?? 30,
+      hammer_threshold_lpm:           s.hammer_threshold_lpm           ?? D.hammer_threshold_lpm,
     });
   }
 
@@ -141,10 +133,11 @@ export default function Settings() {
         off_hours_alerts_enabled:       form.off_hours_alerts_enabled,
         off_hours_start:                form.off_hours_start,
         off_hours_end:                  form.off_hours_end,
-        off_hours_min_duration_seconds: parseInt(form.off_hours_min_duration_seconds, 10),
+        off_hours_min_duration_minutes: parseInt(form.off_hours_min_duration_minutes, 10),
+        off_hours_min_duration_seconds: null,   /* legacy key — removed */
         hammer_alerts_enabled:          form.hammer_alerts_enabled,
         hammer_threshold_lpm:           parseFloat(form.hammer_threshold_lpm),
-        hammer_cooldown_seconds:        parseInt(form.hammer_cooldown_seconds, 10),
+        hammer_cooldown_seconds:        null,   /* legacy key — the cooldown is fixed in the firmware */
         updated_at:                     Date.now(),
       });
       setToast({ type: 'success', message: `Settings saved for ${deviceId}.` });
@@ -248,7 +241,7 @@ export default function Settings() {
                   <NumberField
                     id="setting-calibration"
                     label="Calibration factor (Hz/LPM)"
-                    hint="YF-S401 default = 98.0"
+                    hint="Pulses per second per 1 LPM. Lower value = higher reading. Default 1.1."
                     step="0.1" min="1"
                     value={form.calibration_factor}
                     onChange={setField('calibration_factor')}
@@ -257,7 +250,7 @@ export default function Settings() {
                   <NumberField
                     id="setting-max-flow"
                     label="High flow threshold (LPM)"
-                    hint="Alert when instant flow exceeds this"
+                    hint="High Flow alert when flow stays at or above this for 3 seconds."
                     step="0.5" min="0"
                     value={form.max_flow_threshold}
                     onChange={setField('max_flow_threshold')}
@@ -268,7 +261,7 @@ export default function Settings() {
                   <NumberField
                     id="setting-max-continuous"
                     label="Max continuous flow (minutes)"
-                    hint="Alert if water runs continuously longer than this duration."
+                    hint="Continuous Leak alert if water runs non-stop longer than this. Default 60."
                     step="1" min="1"
                     value={form.max_continuous_minutes}
                     onChange={setField('max_continuous_minutes')}
@@ -308,11 +301,11 @@ export default function Settings() {
                 <div className="mt-4">
                   <NumberField
                     id="setting-grace"
-                    label="Minimum flow duration (seconds)"
-                    hint="Ignore brief off-hours usage (a single flush). Alert only after this many seconds of sustained flow."
-                    step="1" min="5"
-                    value={form.off_hours_min_duration_seconds}
-                    onChange={setField('off_hours_min_duration_seconds')}
+                    label="Minimum flow duration (minutes)"
+                    hint="Ignore brief off-hours usage (a single flush). Alert only after this many whole minutes of sustained flow."
+                    step="1" min="1"
+                    value={form.off_hours_min_duration_minutes}
+                    onChange={setField('off_hours_min_duration_minutes')}
                     disabled={!editMode}
                   />
                 </div>
@@ -323,35 +316,27 @@ export default function Settings() {
                 <SubSectionHeader icon={FaWater} title="Water hammer detection" />
                 <SwitchRow
                   title="Enable water hammer detection"
-                  description="Alert when a sharp, brief flow spike is detected — typically caused by a valve closing too quickly."
+                  description="Alert when flow suddenly collapses from a high rate to almost nothing — typically a valve slamming shut."
                   checked={form.hammer_alerts_enabled}
                   onChange={setField('hammer_alerts_enabled')}
                   disabled={!editMode}
                 />
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="mt-4">
                   <NumberField
                     id="setting-hammer-threshold"
                     label="Spike threshold (LPM)"
-                    hint="Raw flow must exceed this for 1–3 seconds. Default 60.0."
-                    step="1" min="10"
+                    hint="Alert when flow was at least this high and then suddenly drops to about 0 within 3 seconds. Default 10."
+                    step="1" min="1"
                     value={form.hammer_threshold_lpm}
                     onChange={setField('hammer_threshold_lpm')}
                     disabled={!editMode}
                   />
-                  <NumberField
-                    id="setting-hammer-cooldown"
-                    label="Alert cooldown (seconds)"
-                    hint="Minimum gap between hammer alerts to avoid burst notifications."
-                    step="1" min="5"
-                    value={form.hammer_cooldown_seconds}
-                    onChange={setField('hammer_cooldown_seconds')}
-                    disabled={!editMode}
-                  />
                 </div>
                 <Notice tone="info" className="mt-4 !text-xs">
-                  Water hammer is a brief pressure surge when a valve closes suddenly. If
-                  you hear a bang or knock in your pipes, this rule catches the spike even
-                  if the leak detector does not trigger.
+                  Water hammer is a pressure surge caused by a valve closing suddenly. The
+                  device flags it when flow that was at or above the spike threshold falls
+                  to about 2 LPM or less within 3 seconds. Repeat hammer alerts are limited
+                  to one every 30 seconds.
                 </Notice>
               </FormSection>
 

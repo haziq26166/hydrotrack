@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/ui/Modal';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { FloatingInput } from '@/components/ui/FloatingInput';
+import { DEFAULT_DEVICE_SETTINGS } from '@/lib/deviceDefaults';
 
 const DEVICE_ID_RE = /^WFS-[A-Z0-9]{4}$/;
 
@@ -47,11 +48,24 @@ export function AddDeviceModal({ open, onClose }) {
         return setError('You have already linked this device.');
       }
 
-      /* One atomic write: both paths succeed together or neither does. */
-      await update(ref(database), {
+      /* One atomic write: every path succeeds together or none does. */
+      const updates = {
         [`users/${user.uid}/user_devices/${id}`]: { name, linked_at: Date.now() },
         [`devices/${id}/claimed_by`]: user.uid,
-      });
+      };
+
+      /* Default settings are written ONCE, the first time a device is linked.
+         The firmware reads them one time and only re-reads after the user
+         presses "Save settings" (which bumps settings/updated_at).
+         A device that already has settings keeps them. */
+      if (!data.settings) {
+        updates[`devices/${id}/settings`] = {
+          ...DEFAULT_DEVICE_SETTINGS,
+          updated_at: Date.now(),
+        };
+      }
+
+      await update(ref(database), updates);
 
       onClose?.();
     } catch (err) {

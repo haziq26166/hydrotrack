@@ -10,7 +10,7 @@
           ".write": "auth != null && (auth.uid === 'FIRMWARE_UID' || auth.token.email === 'hydrotrack@gmail.com')"
         },
         "settings": {
-          ".write": "auth != null && auth.uid === data.parent().child('claimed_by').val()"
+          ".write": "auth != null && auth.uid === newData.parent().child('claimed_by').val()"
         }
       }
     },

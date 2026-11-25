@@ -17,9 +17,17 @@ export function describeDevice(d) {
   }
   switch (d.status) {
     case 'leak':
-      return { chip: 'leak', label: 'Leak detected', subtitle: 'Continuous flow detected' };
+      return {
+        chip: 'leak',
+        label: 'Leak detected',
+        subtitle: d.alertReason ? `${d.alertReason} detected` : 'Continuous flow detected',
+      };
     case 'warn':
-      return { chip: 'warn', label: 'Unusual flow', subtitle: 'Flow pattern needs a look' };
+      return {
+        chip: 'warn',
+        label: 'Unusual flow',
+        subtitle: d.alertReason ? `${d.alertReason} detected` : 'Flow pattern needs a look',
+      };
     case 'offline':
       return {
         chip: 'offline',

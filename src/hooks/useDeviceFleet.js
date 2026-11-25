@@ -17,6 +17,7 @@ export const statusRank = (status) => STATUS_RANK[status] ?? 9;
  *   { id, name, linkedAt, live, loading,
  *     isOnline, secondsAgo,
  *     rawStatus,                // NORMAL | ALERT | LEAK | …
+ *     alertReason,              // 'High flow' | 'Water hammer' | … ('' when normal)
  *     status,                   // 'ok' | 'warn' | 'leak' | 'offline'
  *     flow, usage, peak }       // flow forced to 0 while offline (stale otherwise)
  *
@@ -88,6 +89,7 @@ export function useDeviceFleet(uid) {
         isOnline,
         secondsAgo,
         rawStatus,
+        alertReason: String(live?.alert_reason || ''),
         status,
         flow: isOnline ? Number(live?.current_flow || 0) : 0,
         usage: Number(live?.todays_usage || 0),
