@@ -5,6 +5,7 @@ import {
   FaArrowRight, FaCircleCheck, FaGaugeHigh,
 } from 'react-icons/fa6';
 import { useAuth } from '@/context/AuthContext';
+import { LiveFlowCard } from '@/components/dashboard/LiveFlowCard';
 
 const FEATURES = [
   {
@@ -60,17 +61,13 @@ function HeroPreview() {
 
   return (
     <div className="relative mx-auto w-full max-w-md" aria-hidden="true">
-      <div className="pointer-events-none absolute -inset-6 rounded-[3rem] bg-aqua-mint opacity-30 blur-3xl" />
-
       <div className="relative space-y-4">
-        <DeviceCard
+        <LiveFlowCard
           device={demo({ id: 'WFS-A1B2', name: 'Device A01', status: 'ok', flow, usage: 128.4 })}
         />
-        <div className="relative space-y-4">
-          <DeviceCard
-            device={demo({ id: 'WFS-C3D4', name: 'Device B22', status: 'leak', flow: 11.8, usage: 342.7, peak: 12.4 })}
-          />
-        </div>
+        <LiveFlowCard
+          device={demo({ id: 'WFS-C3D4', name: 'Device B22', status: 'leak', flow: 11.8, usage: 342.7, peak: 12.4 })}
+        />
       </div>
     </div>
   );
