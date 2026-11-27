@@ -4,15 +4,15 @@ import { FaXmark } from 'react-icons/fa6';
 
 const SIZES = {
   sm: 'max-w-sm',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
+  md: 'max-w-md',
+  lg: 'max-w-xl',
 };
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 /**
- * Centered glass dialog (all screen sizes).
+ * Centered dialog (all screen sizes).
  *
  * Props
  *   open, onClose
@@ -92,7 +92,7 @@ export function Modal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-ink-900/30 p-4 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-ink-900/40 p-4 animate-fade-in"
       onMouseDown={(e) => {
         if (closeOnBackdrop && e.target === e.currentTarget) onClose?.();
       }}
@@ -105,7 +105,7 @@ export function Modal({
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
         className={[
-          'glass-strong relative my-auto w-full rounded-3xl outline-none animate-scale-in',
+          'glass-strong relative my-auto w-full rounded-lg outline-none animate-scale-in',
           SIZES[size] ?? SIZES.md,
           className,
         ].join(' ')}
@@ -115,31 +115,31 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl text-ink-400 transition-colors hover:bg-ink-100/70 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
+            className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hydro/40"
           >
-            <FaXmark size={15} />
+            <FaXmark size={14} />
           </button>
         )}
 
         {(title || description) && (
-          <header className="px-6 pb-2 pt-6 pr-14">
+          <header className="border-b border-ink-100 px-5 pb-3 pt-4 pr-12">
             {title && (
-              <h2 id={titleId} className="text-lg font-bold text-ink-900">
+              <h2 id={titleId} className="text-[15px] font-semibold text-ink-900">
                 {title}
               </h2>
             )}
             {description && (
-              <p id={descId} className="mt-1 text-sm text-ink-500">
+              <p id={descId} className="mt-0.5 text-xs text-ink-500">
                 {description}
               </p>
             )}
           </header>
         )}
 
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-5 py-4">{children}</div>
 
         {footer && (
-          <footer className="flex flex-col-reverse gap-3 px-6 pb-6 pt-2 sm:flex-row sm:justify-end">
+          <footer className="flex flex-col-reverse gap-2 border-t border-ink-100 bg-ink-50/60 px-5 py-3 sm:flex-row sm:justify-end">
             {footer}
           </footer>
         )}

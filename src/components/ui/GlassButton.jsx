@@ -1,21 +1,21 @@
 import { FaCircleNotch } from 'react-icons/fa6';
 
 /**
- * Unified button component.
+ * Unified button component (flat, compact).
  *
  * Variants
- *   primary   — teal brand gradient (default)
- *   ghost     — white glass surface with teal text
- *   google    — white surface with border (login / register)
- *   outline   — transparent with white border (on dark / gradient CTAs)
+ *   primary   — solid teal (default)
+ *   ghost     — white with border
+ *   google    — white with border (login / register)
+ *   outline   — transparent with white border (on dark surfaces)
  *   aqua      — soft aqua accent
- *   danger    — muted coral for destructive actions
+ *   danger    — red for destructive actions
  *
  * Sizes
- *   sm        — compact, used in table row actions
- *   md        — default, standard buttons
- *   lg        — tall, hero CTAs
- *   icon      — square icon-only button (pass aria-label!)
+ *   sm        — 28 px, used in table rows
+ *   md        — 36 px, default
+ *   lg        — 40 px, primary CTAs
+ *   icon      — 36 px square, icon-only (pass aria-label!)
  */
 const VARIANT_CLS = {
   primary: 'btn-hydro',
@@ -27,10 +27,10 @@ const VARIANT_CLS = {
 };
 
 const SIZE_CLS = {
-  sm:   'text-xs !px-3 !py-2',
-  md:   'text-sm',
-  lg:   'text-base !px-6 !py-3.5',
-  icon: 'text-sm !p-0 h-11 w-11 shrink-0',
+  sm:   '!h-7 !px-2.5 text-xs',
+  md:   '',
+  lg:   '!h-10 !px-5 text-sm',
+  icon: '!h-9 !w-9 !p-0 shrink-0',
 };
 
 export function GlassButton({
@@ -61,7 +61,7 @@ export function GlassButton({
       ].join(' ')}
       {...rest}
     >
-      {loading ? <FaCircleNotch size={14} className="animate-spin" /> : leftIcon}
+      {loading ? <FaCircleNotch size={13} className="animate-spin" /> : leftIcon}
       {children}
       {!loading && rightIcon}
     </button>

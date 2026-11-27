@@ -4,7 +4,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { getAlertTone, getAlertIcon } from '@/pages/Alerts';
 
-/* The Alerts page classifies by tone name; map those to the muted palette. */
+/* The Alerts page classifies by tone name; map those to the status palette. */
 const TONE = {
   red:    { bg: 'bg-coral-100', fg: 'text-coral-600', chip: 'chip-leak' },
   amber:  { bg: 'bg-sand-100',  fg: 'text-sand-700',  chip: 'chip-warn' },
@@ -14,7 +14,7 @@ const TONE = {
 };
 
 /**
- * Latest alerts across all devices.
+ * Latest alerts for the device shown on the dashboard.
  *   alerts         from useRecentAlerts()
  *   ready          false while subscriptions are loading
  *   onAcknowledge  (alert) => void   — from useAlertAcknowledge()
@@ -31,10 +31,10 @@ export function RecentAlertsCard({
 
   return (
     <GlassCard padded="md" className={className}>
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-hydro-50 text-hydro">
-            <FaBell size={15} />
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-7 w-7 place-items-center rounded bg-hydro-50 text-hydro">
+            <FaBell size={12} />
           </span>
           <div>
             <h3 className="section-title">Recent alerts</h3>
@@ -47,26 +47,26 @@ export function RecentAlertsCard({
 
         <Link
           to="/alerts"
-          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-hydro transition-colors hover:bg-white/60 hover:text-hydro-700"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded px-2 py-1 text-xs font-semibold text-hydro transition-colors hover:bg-hydro-50 hover:text-hydro-700"
         >
-          View all <FaArrowRight size={10} />
+          View all <FaArrowRight size={9} />
         </Link>
       </div>
 
       {!ready ? (
-        <div className="space-y-2.5">
-          {[0, 1, 2].map((i) => <div key={i} className="skeleton h-14 w-full" />)}
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => <div key={i} className="skeleton h-11 w-full" />)}
         </div>
       ) : alerts.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink-200 bg-white/30 px-4 py-10 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-white text-sea-500 shadow-glass-sm">
-            <FaShieldHalved size={18} />
+        <div className="rounded-md border border-dashed border-ink-200 bg-ink-50 px-4 py-8 text-center">
+          <span className="mx-auto grid h-9 w-9 place-items-center rounded-full bg-white text-sea-500 shadow-glass-sm">
+            <FaShieldHalved size={15} />
           </span>
-          <p className="mt-3 text-sm font-bold text-ink-800">No recent alerts</p>
-          <p className="mt-1 text-xs text-ink-500">Your system is monitoring normally.</p>
+          <p className="mt-2 text-[13px] font-semibold text-ink-800">No recent alerts</p>
+          <p className="mt-0.5 text-xs text-ink-500">This device is monitoring normally.</p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-ink-100 rounded-md border border-ink-200">
           {alerts.map((a) => {
             const tone = TONE[getAlertTone(a.type)] ?? TONE.slate;
             const Icon = getAlertIcon(a.type);
@@ -76,33 +76,29 @@ export function RecentAlertsCard({
               <li
                 key={a.key}
                 className={[
-                  'flex items-center gap-3 rounded-2xl border border-white/70 bg-white/50 px-3.5 py-3 transition-colors hover:bg-white/80',
+                  'flex items-center gap-3 px-3 py-2 transition-colors hover:bg-ink-50',
                   a.acknowledged ? 'opacity-70' : '',
                 ].join(' ')}
               >
-                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${tone.bg} ${tone.fg}`}>
-                  <Icon size={14} />
+                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded ${tone.bg} ${tone.fg}`}>
+                  <Icon size={12} />
                 </span>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <div className="flex flex-wrap items-center gap-x-2">
                     <span className={`chip ${tone.chip}`}>{a.type}</span>
-                    <span className="truncate text-xs font-semibold text-ink-700">{a.deviceName}</span>
+                    <span className="text-xs font-semibold text-ink-700">
+                      {a.flowRate.toFixed(1)} LPM
+                    </span>
                   </div>
-                  <p className="mt-1 text-xs text-ink-500">
-                    Spike at <strong className="text-ink-800">{a.flowRate.toFixed(1)} LPM</strong>
-                  </p>
+                  <p className="mt-0.5 font-mono text-[11px] text-ink-500">{when}</p>
                 </div>
 
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <span className="text-right font-mono text-[11px] leading-tight text-ink-500">
-                    {when}
-                  </span>
-
+                <div className="shrink-0">
                   {a.acknowledged ? (
                     <span className="chip chip-ok">
                       <FaCheck size={9} />
-                      Acknowledged
+                      Done
                     </span>
                   ) : (
                     onAcknowledge && (
@@ -110,11 +106,11 @@ export function RecentAlertsCard({
                         variant="primary"
                         size="sm"
                         loading={isPending(a)}
-                        leftIcon={<FaCheck size={10} />}
+                        leftIcon={<FaCheck size={9} />}
                         onClick={() => onAcknowledge(a)}
                         aria-label={`Acknowledge ${a.type} on ${a.deviceName}`}
                       >
-                        Acknowledge
+                        Ack
                       </GlassButton>
                     )
                   )}

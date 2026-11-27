@@ -3,15 +3,25 @@ import { FaChevronDown, FaMagnifyingGlass } from 'react-icons/fa6';
 
 /**
  * Searchable device picker — click it and type part of a device name or ID.
+ * Scales to any number of devices (used on Dashboard, Alerts, History, Settings).
  *
  * @param {Record<string, {id, name}>} devices
- * @param {string}   value     currently selected device id
+ * @param {string}   value       currently selected device id (or 'ALL')
  * @param {(id: string) => void} onChange
- * @param {string}   [label]   accessible label
+ * @param {string}   [label]     accessible label
+ * @param {string}   [allLabel]  when given, adds an "All devices" option whose
+ *                               value is the string 'ALL'
  *
  * Keyboard: type to filter · ↑ ↓ to move · Enter to pick · Esc to close.
  */
-export function DeviceCombobox({ devices, value, onChange, label = 'Select device' }) {
+export function DeviceCombobox({
+  devices,
+  value,
+  onChange,
+  label = 'Select device',
+  allLabel,
+  placeholder = 'Select a device',
+}) {
   const listId = useId();
   const rootRef = useRef(null);
   const inputRef = useRef(null);
@@ -20,21 +30,25 @@ export function DeviceCombobox({ devices, value, onChange, label = 'Select devic
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
 
-  const all = useMemo(
-    () => Object.values(devices).sort((a, b) => a.name.localeCompare(b.name)),
-    [devices],
-  );
+  const options = useMemo(() => {
+    const sorted = Object.values(devices).sort((a, b) => a.name.localeCompare(b.name));
+    return allLabel ? [{ id: 'ALL', name: allLabel, hint: '' }, ...sorted] : sorted;
+  }, [devices, allLabel]);
 
-  const selected = value ? devices[value] : null;
-  const selectedLabel = selected ? `${selected.name} (${selected.id})` : '';
+  const selected = options.find((o) => o.id === value) || null;
+  const selectedLabel = !selected
+    ? ''
+    : selected.id === 'ALL'
+      ? selected.name
+      : `${selected.name} (${selected.id})`;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return all;
-    return all.filter(
+    if (!q) return options;
+    return options.filter(
       (d) => d.name.toLowerCase().includes(q) || d.id.toLowerCase().includes(q),
     );
-  }, [all, query]);
+  }, [options, query]);
 
   /* Close when clicking anywhere outside */
   useEffect(() => {
@@ -54,7 +68,7 @@ export function DeviceCombobox({ devices, value, onChange, label = 'Select devic
 
   function openList() {
     setQuery('');
-    setActive(Math.max(0, all.findIndex((d) => d.id === value)));
+    setActive(Math.max(0, options.findIndex((d) => d.id === value)));
     setOpen(true);
   }
 
@@ -93,7 +107,7 @@ export function DeviceCombobox({ devices, value, onChange, label = 'Select devic
 
   return (
     <div ref={rootRef} className="relative">
-      <FaMagnifyingGlass size={14} className="hydro-input-icon" />
+      <FaMagnifyingGlass size={13} className="hydro-input-icon" />
 
       <input
         ref={inputRef}
@@ -107,17 +121,17 @@ export function DeviceCombobox({ devices, value, onChange, label = 'Select devic
         autoComplete="off"
         spellCheck={false}
         value={open ? query : selectedLabel}
-        placeholder={open ? selectedLabel || 'Type a device name or ID…' : 'Select a device'}
+        placeholder={open ? selectedLabel || 'Type a device name or ID…' : placeholder}
         onFocus={(e) => { openList(); e.target.select(); }}
         onClick={() => { if (!open) openList(); }}
         onChange={(e) => { setQuery(e.target.value); setActive(0); setOpen(true); }}
         onKeyDown={onKeyDown}
-        className="hydro-input !pl-10 !pr-10"
+        className="hydro-input !pl-9 !pr-9"
       />
 
       <FaChevronDown
-        size={11}
-        className={`pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-ink-400 transition-transform ${
+        size={10}
+        className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 transition-transform ${
           open ? 'rotate-180' : ''
         }`}
       />
@@ -127,10 +141,10 @@ export function DeviceCombobox({ devices, value, onChange, label = 'Select devic
           id={listId}
           role="listbox"
           aria-label={label}
-          className="glass-strong absolute left-0 right-0 z-20 mt-2 max-h-60 overflow-y-auto rounded-2xl p-1.5"
+          className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-ink-200 bg-white p-1 shadow-glass-lg"
         >
           {filtered.length === 0 ? (
-            <li className="px-3 py-3 text-sm text-ink-500">
+            <li className="px-2.5 py-2 text-[13px] text-ink-500">
               No devices match “{query.trim()}”.
             </li>
           ) : (
@@ -147,13 +161,15 @@ export function DeviceCombobox({ devices, value, onChange, label = 'Select devic
                   onMouseEnter={() => setActive(i)}
                   onMouseDown={(e) => { e.preventDefault(); choose(d); }}
                   className={[
-                    'flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm',
+                    'flex cursor-pointer items-center justify-between gap-3 rounded px-2.5 py-1.5 text-[13px]',
                     isActive ? 'bg-hydro-50 text-hydro-700' : 'text-ink-800',
-                    isSelected ? 'font-bold' : 'font-medium',
+                    isSelected ? 'font-semibold' : 'font-medium',
                   ].join(' ')}
                 >
                   <span className="truncate">{d.name}</span>
-                  <span className="shrink-0 font-mono text-xs text-ink-400">{d.id}</span>
+                  {d.id !== 'ALL' && (
+                    <span className="shrink-0 font-mono text-[11px] text-ink-400">{d.id}</span>
+                  )}
                 </li>
               );
             })

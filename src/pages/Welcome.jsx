@@ -5,7 +5,6 @@ import {
   FaArrowRight, FaCircleCheck, FaGaugeHigh,
 } from 'react-icons/fa6';
 import { useAuth } from '@/context/AuthContext';
-import { DeviceCard } from '@/components/dashboard/DeviceCard';
 
 const FEATURES = [
   {

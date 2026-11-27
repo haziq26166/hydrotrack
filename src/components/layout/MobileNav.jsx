@@ -9,11 +9,10 @@ import { SidebarContent } from './SidebarContent';
 const FOCUSABLE = 'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 /**
- * Mobile top bar (hamburger · brand · profile) plus a slide-in drawer.
+ * Mobile top bar (menu · brand · profile) plus a slide-in drawer.
  * Visible below the md breakpoint only.
- *
- * The drawer is portalled to <body>: the glass top bar uses backdrop-filter,
- * which would otherwise become the containing block of any `fixed` child.
+ * The drawer is portalled to <body> so `fixed` positioning is never
+ * affected by a parent's styles.
  */
 export function MobileNav({ onAddDevice, leak }) {
   const [open, setOpen] = useState(false);
@@ -83,49 +82,45 @@ export function MobileNav({ onAddDevice, leak }) {
       {/* ============================================================
           TOP BAR
           ============================================================ */}
-      <div className="sticky top-0 z-30 pt-safe md:hidden">
-        <div className="px-3 pt-3">
-          <div className="glass flex items-center justify-between rounded-2xl p-1.5">
-            <button
-              ref={toggleRef}
-              type="button"
-              onClick={() => setOpen(true)}
-              aria-label="Open navigation menu"
-              aria-expanded={open}
-              aria-controls="mobile-drawer"
-              className="relative grid h-11 w-11 place-items-center rounded-xl text-ink-700 transition-colors hover:bg-white/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
-            >
-              <FaBars size={17} />
-              {dotStatus && (
-                <span className="absolute right-2 top-2" title="Leak alert on the dashboard">
-                  <StatusDot
-                    status={dotStatus}
-                    pulse={dotStatus === 'leak'}
-                    className="rounded-full ring-2 ring-white/90"
-                  />
-                </span>
-              )}
-            </button>
+      <div className="sticky top-0 z-30 border-b border-ink-200 bg-white pt-safe md:hidden">
+        <div className="flex h-12 items-center justify-between px-2">
+          <button
+            ref={toggleRef}
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={open}
+            aria-controls="mobile-drawer"
+            className="relative grid h-9 w-9 place-items-center rounded-md text-ink-700 transition-colors hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hydro/40"
+          >
+            <FaBars size={16} />
+            {dotStatus && (
+              <span className="absolute right-1.5 top-1.5" title="Leak alert on the dashboard">
+                <StatusDot
+                  status={dotStatus}
+                  pulse={dotStatus === 'leak'}
+                  className="rounded-full ring-2 ring-white"
+                />
+              </span>
+            )}
+          </button>
 
-            <Link to="/dashboard" className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-hydro-gradient text-white shadow-brand">
-                <FaDroplet size={13} />
-              </span>
-              <span className="text-base font-extrabold tracking-tight text-ink-900">
-                HydroTrack
-              </span>
-            </Link>
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-hydro text-white">
+              <FaDroplet size={12} />
+            </span>
+            <span className="text-[15px] font-bold tracking-tight text-ink-900">HydroTrack</span>
+          </Link>
 
-            <Link
-              to="/profile"
-              aria-label="Profile"
-              className="grid h-11 w-11 place-items-center rounded-xl transition-colors hover:bg-white/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
-            >
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-aqua-mint text-xs font-extrabold text-hydro-800">
-                {initial}
-              </span>
-            </Link>
-          </div>
+          <Link
+            to="/profile"
+            aria-label="Profile"
+            className="grid h-9 w-9 place-items-center rounded-md transition-colors hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hydro/40"
+          >
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-hydro-50 text-xs font-bold text-hydro-700">
+              {initial}
+            </span>
+          </Link>
         </div>
       </div>
 
@@ -136,7 +131,7 @@ export function MobileNav({ onAddDevice, leak }) {
         createPortal(
           <div className="fixed inset-0 z-50 md:hidden">
             <div
-              className="absolute inset-0 bg-ink-900/35 backdrop-blur-sm animate-fade-in"
+              className="absolute inset-0 bg-ink-900/40 animate-fade-in"
               onClick={close}
               aria-hidden="true"
             />
@@ -147,11 +142,7 @@ export function MobileNav({ onAddDevice, leak }) {
               role="dialog"
               aria-modal="true"
               aria-label="Navigation menu"
-              style={{
-                top: 'max(0.5rem, env(safe-area-inset-top))',
-                bottom: 'max(0.5rem, env(safe-area-inset-bottom))',
-              }}
-              className="glass-strong absolute left-2 flex w-[calc(100%-1rem)] max-w-xs flex-col rounded-3xl p-3 animate-slide-in-left"
+              className="absolute inset-y-0 left-0 flex w-64 max-w-[85%] flex-col border-r border-ink-200 bg-white px-2 py-3 pt-safe pb-safe animate-slide-in-left"
             >
               <SidebarContent
                 onNavigate={close}
@@ -162,9 +153,9 @@ export function MobileNav({ onAddDevice, leak }) {
                     type="button"
                     onClick={close}
                     aria-label="Close navigation menu"
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-ink-400 transition-colors hover:bg-ink-100/70 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-aqua/30"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hydro/40"
                   >
-                    <FaXmark size={16} />
+                    <FaXmark size={14} />
                   </button>
                 }
               />

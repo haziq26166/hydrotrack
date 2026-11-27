@@ -1,14 +1,15 @@
 /**
- * Frosted-glass surface.
+ * Flat panel (white, 1 px border, small radius).
+ * The component name is kept so existing imports keep working.
  *
- * variant   default | strong | soft            → glass density
- *           ok | warn | leak | offline | aqua  → tinted status glass
- * padded    true (p-6) | false | 'sm' | 'md' | 'lg'
- * interactive  adds a gentle hover-lift (use for clickable cards)
+ * variant   default | strong | soft            → surface style
+ *           ok | warn | leak | offline | aqua  → tinted status panel
+ * padded    true (p-4) | false | 'sm' | 'md' | 'lg'
+ * interactive  subtle border change on hover (for clickable panels)
  */
 const VARIANTS = {
   default: 'glass',
-  strong:  'glass-strong',
+  strong:  'glass',
   soft:    'glass-soft',
   ok:      'glass-ok',
   warn:    'glass-warn',
@@ -18,9 +19,9 @@ const VARIANTS = {
 };
 
 const PADDING = {
-  sm: 'p-4',
-  md: 'p-5',
-  lg: 'p-8',
+  sm: 'p-3',
+  md: 'p-4',
+  lg: 'p-6',
 };
 
 export function GlassCard({
@@ -33,17 +34,15 @@ export function GlassCard({
   ...rest
 }) {
   const paddingCls =
-    padded === true ? 'p-6' : typeof padded === 'string' ? (PADDING[padded] ?? 'p-6') : '';
+    padded === true ? 'p-4' : typeof padded === 'string' ? (PADDING[padded] ?? 'p-4') : '';
 
   return (
     <Tag
       className={[
-        'rounded-3xl',
+        'rounded-lg',
         VARIANTS[variant] ?? VARIANTS.default,
         paddingCls,
-        interactive
-          ? 'transition-all duration-300 ease-out-expo hover:-translate-y-0.5 hover:shadow-glass-lg hover:bg-white/70'
-          : '',
+        interactive ? 'transition-colors duration-150 hover:border-ink-300' : '',
         className,
       ].join(' ')}
       {...rest}

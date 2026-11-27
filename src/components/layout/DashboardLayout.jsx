@@ -42,13 +42,13 @@ export function DashboardLayout() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      {/* Mobile: glass top bar + hamburger drawer (hidden from md up) */}
+    <div className="flex min-h-screen flex-col bg-canvas md:flex-row">
+      {/* Mobile: top bar + slide-in drawer (hidden from md up) */}
       <MobileNav onAddDevice={openAddDevice} leak={leak} />
 
-      {/* Desktop: floating, collapsible sidebar (hidden below md) */}
+      {/* Desktop: fixed full-height sidebar (hidden below md) */}
       <div className="hidden shrink-0 md:block">
-        <div className="sticky top-0 h-screen p-4 pr-0">
+        <div className="sticky top-0 h-screen">
           <Sidebar
             collapsed={collapsed}
             onToggle={toggleCollapsed}
@@ -58,8 +58,8 @@ export function DashboardLayout() {
         </div>
       </div>
 
-      <main className="min-w-0 flex-1 px-4 pb-10 pt-5 md:px-8 md:py-8">
-        <div key={location.pathname} className="page-enter mx-auto max-w-7xl">
+      <main className="min-w-0 flex-1 px-3 pb-8 pt-4 md:px-6 md:py-5">
+        <div key={location.pathname} className="page-enter mx-auto max-w-[1400px]">
           <Outlet context={{ openAddDevice, leak }} />
         </div>
       </main>

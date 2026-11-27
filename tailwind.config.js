@@ -3,47 +3,36 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
-      /* ============================================================
-         BREAKPOINTS — one extra small step for compact phones
-         ============================================================ */
       screens: {
         xs: '420px',
       },
 
       colors: {
-        /* ============================================================
-           PRIMARY — Deep teal  ("hydro")
-           Same token name as before, so every existing `text-hydro`,
-           `bg-hydro/10`, `shadow-hydro` etc. is re-themed automatically.
-           500 = DEFAULT is tuned to pass WCAG AA with white text (4.7:1).
-           ============================================================ */
+        /* PRIMARY — deep teal (used as the single accent colour) */
         hydro: {
           50:  '#E7F6F7',
           100: '#C5E9EC',
           200: '#92D6DC',
           300: '#4DB9C3',
           400: '#1699A6',
-          500: '#0A7F8B',   /* base = Primary */
+          500: '#0A7F8B',
           600: '#086A74',
           700: '#07555D',
           800: '#054148',
           900: '#032E33',
           DEFAULT: '#0A7F8B',
-          light:   '#0E98A6',  /* hover state */
-          dark:    '#07555D',  /* gradients */
+          light:   '#0E98A6',
+          dark:    '#07555D',
         },
 
-        /* ============================================================
-           SECONDARY — Bright aqua / cyan
-           Accents, focus rings, links, highlights.
-           ============================================================ */
+        /* SECONDARY — aqua (focus rings, info chips) */
         aqua: {
           50:  '#E6F9FC',
           100: '#C3F0F7',
           200: '#92E2EF',
           300: '#5FD2E5',
           400: '#36C3DB',
-          500: '#22B8CF',   /* base = Secondary */
+          500: '#22B8CF',
           600: '#1596AB',
           700: '#12788A',
           800: '#0F5C6B',
@@ -53,16 +42,12 @@ export default {
           dark:    '#1596AB',
         },
 
-        /* ============================================================
-           TERTIARY — Soft mint
-           Positive highlights, soft accents.
-           ============================================================ */
         mint: {
           50:  '#F0FCF9',
           100: '#D6F7EF',
           200: '#B2EFE1',
           300: '#8BE9D8',
-          400: '#7FE7D6',   /* base = Tertiary */
+          400: '#7FE7D6',
           500: '#4DD9C2',
           600: '#2DC2AA',
           700: '#1F9A87',
@@ -73,89 +58,82 @@ export default {
           dark:    '#4DD9C2',
         },
 
-        /* ============================================================
-           INK — Deep navy for text & headings (replaces slate usage
-           in the redesigned components). Cool, slightly blue-green.
-           ============================================================ */
+        /* INK — neutral text / border greys */
         ink: {
-          50:  '#F4F7FA',
-          100: '#E8EEF4',
-          200: '#D6E0EA',
-          300: '#B5C4D3',
-          400: '#8CA2B8',
-          500: '#5B7A98',
-          600: '#35597C',
-          700: '#1E4468',
-          800: '#123556',
-          900: '#0B2A4A',
-          DEFAULT: '#0B2A4A',
+          50:  '#F6F8FA',
+          100: '#EBEFF3',
+          200: '#DCE3EA',
+          300: '#C0CBD6',
+          400: '#8D9BAA',
+          500: '#5F6F80',
+          600: '#46566A',
+          700: '#2F3E51',
+          800: '#1C2B3D',
+          900: '#0F1C2B',
+          DEFAULT: '#0F1C2B',
         },
 
-        /* ============================================================
-           STATUS — muted & elegant
-           Dusty, desaturated tones instead of alarm-red / neon-green.
-           coral = leak · sand = warning · sea = normal · fog = offline
-           ============================================================ */
+        /* STATUS — monitoring convention
+           sea = normal (green) · sand = warning (amber)
+           coral = leak / critical (red) · fog = offline (grey) */
         coral: {
-          50:  '#FDF1EF',
-          100: '#FADDD8',
-          200: '#F4BCB2',
-          300: '#EC9A8D',
-          400: '#E27F70',
-          500: '#D4695A',   /* base = Leak */
-          600: '#B84E40',
-          700: '#943D32',
-          800: '#722F27',
-          900: '#4F211B',
-          DEFAULT: '#D4695A',
+          50:  '#FEF2F1',
+          100: '#FCE0DD',
+          200: '#F8C2BC',
+          300: '#F19C93',
+          400: '#E8776B',
+          500: '#D9534A',
+          600: '#BC3F37',
+          700: '#982F2A',
+          800: '#742420',
+          900: '#4F1815',
+          DEFAULT: '#D9534A',
         },
         sand: {
-          50:  '#FCF7EA',
-          100: '#F7EBCB',
-          200: '#EFD99B',
-          300: '#E6C46D',
-          400: '#DCAE4B',
-          500: '#C99A38',   /* base = Warning */
-          600: '#A87A2A',
-          700: '#855F20',
-          800: '#654818',
-          900: '#463110',
-          DEFAULT: '#C99A38',
+          50:  '#FFF8EB',
+          100: '#FDEDC9',
+          200: '#F9DA97',
+          300: '#F2C35F',
+          400: '#E8AC37',
+          500: '#D4951C',
+          600: '#B07714',
+          700: '#8A5C11',
+          800: '#6A4610',
+          900: '#47300B',
+          DEFAULT: '#D4951C',
         },
         sea: {
-          50:  '#EAF6F1',
-          100: '#CDEBDF',
-          200: '#9FD8C1',
-          300: '#6FC3A2',
-          400: '#4DB08A',
-          500: '#3A9A76',   /* base = Normal / OK */
-          600: '#2E7D5E',
-          700: '#256349',
-          800: '#1C4A37',
-          900: '#133226',
-          DEFAULT: '#3A9A76',
+          50:  '#ECF8F1',
+          100: '#D0EFDE',
+          200: '#A3DEBF',
+          300: '#72C99D',
+          400: '#47B27C',
+          500: '#2F9A64',
+          600: '#237D50',
+          700: '#1D6340',
+          800: '#174C33',
+          900: '#103625',
+          DEFAULT: '#2F9A64',
         },
         fog: {
-          50:  '#F3F6F8',
-          100: '#E4EAEF',
-          200: '#CBD5DD',
-          300: '#A9B7C3',
-          400: '#8797A5',
-          500: '#6B7C8B',   /* base = Offline */
-          600: '#536370',
-          700: '#3F4C57',
-          800: '#2D3740',
-          900: '#1E252B',
-          DEFAULT: '#6B7C8B',
+          50:  '#F4F6F8',
+          100: '#E6EAEE',
+          200: '#CDD5DC',
+          300: '#AAB6C1',
+          400: '#8896A3',
+          500: '#6B7A88',
+          600: '#546270',
+          700: '#3F4B57',
+          800: '#2D3741',
+          900: '#1E252C',
+          DEFAULT: '#6B7A88',
         },
 
-        /* ============================================================
-           CANVAS — pale aqua-mist page background
-           ============================================================ */
+        /* CANVAS — flat page background */
         canvas: {
-          DEFAULT: '#E4F4F6',
-          soft:    '#EEF9FA',
-          deep:    '#D3ECEF',
+          DEFAULT: '#F3F6F9',
+          soft:    '#F8FAFC',
+          deep:    '#E8EDF2',
         },
       },
 
@@ -171,36 +149,36 @@ export default {
         ],
       },
 
+      /* Tighter corner radii — every existing rounded-xl / 2xl / 3xl in the
+         app shrinks to a standard dashboard look without editing each file. */
       borderRadius: {
-        '4xl': '2rem',
+        md:  '4px',
+        lg:  '6px',
+        xl:  '6px',
+        '2xl': '8px',
+        '3xl': '8px',
+        '4xl': '10px',
       },
 
+      /* Flat, subtle elevation only. Names are kept so existing classes
+         keep compiling. */
       boxShadow: {
-        /* Tinted shadows match the teal-ink palette. Every glass shadow
-           carries a 1px inner top highlight for that "frosted edge". */
-        'glass-sm': '0 2px 12px 0 rgba(8, 70, 85, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.70)',
-        glass:      '0 8px 32px 0 rgba(8, 70, 85, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.70)',
-        'glass-lg': '0 20px 56px -8px rgba(8, 70, 85, 0.16), inset 0 1px 0 0 rgba(255, 255, 255, 0.75)',
-        /* NOTE: `shadow-<name>` is ambiguous when a colour has the same name
-           (hydro, coral), so Tailwind treats it as a shadow *colour* and the
-           soft tint below is lost. The design system therefore uses the
-           collision-free names `brand`, `brand-lg` and `alert`. `hydro` and
-           `hydro-lg` are kept only so existing pages keep compiling. */
-        brand:      '0 10px 28px -10px rgba(10, 127, 139, 0.55)',
-        'brand-lg': '0 18px 40px -12px rgba(10, 127, 139, 0.60)',
-        alert:      '0 10px 28px -10px rgba(184, 78, 64, 0.50)',
-        hydro:      '0 10px 28px -10px rgba(10, 127, 139, 0.55)',
-        'hydro-lg': '0 18px 40px -12px rgba(10, 127, 139, 0.60)',
-        glow:       '0 0 0 4px rgba(34, 184, 207, 0.18)',
+        'glass-sm': '0 1px 2px 0 rgba(15, 28, 43, 0.05)',
+        glass:      '0 1px 2px 0 rgba(15, 28, 43, 0.06)',
+        'glass-lg': '0 8px 24px -6px rgba(15, 28, 43, 0.18)',
+        brand:      '0 1px 2px 0 rgba(15, 28, 43, 0.12)',
+        'brand-lg': '0 2px 4px 0 rgba(15, 28, 43, 0.14)',
+        alert:      '0 1px 2px 0 rgba(15, 28, 43, 0.12)',
+        hydro:      '0 1px 2px 0 rgba(15, 28, 43, 0.12)',
+        'hydro-lg': '0 2px 4px 0 rgba(15, 28, 43, 0.14)',
+        glow:       '0 0 0 3px rgba(10, 127, 139, 0.15)',
       },
 
       backgroundImage: {
-        /* Primary brand gradient — buttons, brand mark, hero accents */
-        'hydro-gradient': 'linear-gradient(135deg, #0E98A6 0%, #0A7F8B 55%, #086A74 100%)',
-        /* Aqua → mint, for soft accent panels */
-        'aqua-mint':      'linear-gradient(135deg, #22B8CF 0%, #7FE7D6 100%)',
-        /* Subtle diagonal sheen laid over glass cards */
-        'glass-sheen':    'linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.10) 60%)',
+        /* Gradients flattened to solid fills (names kept for compatibility) */
+        'hydro-gradient': 'linear-gradient(#0A7F8B, #0A7F8B)',
+        'aqua-mint':      'linear-gradient(#E7F6F7, #E7F6F7)',
+        'glass-sheen':    'none',
       },
 
       transitionTimingFunction: {
@@ -208,30 +186,29 @@ export default {
       },
 
       keyframes: {
-        /* Leak ripple (kept under the old name so existing usage works) */
         'pulse-alert': {
-          '0%, 100%': { boxShadow: '0 0 0 0 rgba(212, 105, 90, 0.40)' },
-          '50%':      { boxShadow: '0 0 0 14px rgba(212, 105, 90, 0)' },
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(217, 83, 74, 0.35)' },
+          '50%':      { boxShadow: '0 0 0 6px rgba(217, 83, 74, 0)' },
         },
         'fade-in': {
           '0%':   { opacity: '0' },
           '100%': { opacity: '1' },
         },
         'fade-in-up': {
-          '0%':   { opacity: '0', transform: 'translateY(8px)' },
+          '0%':   { opacity: '0', transform: 'translateY(4px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'scale-in': {
-          '0%':   { opacity: '0', transform: 'scale(0.96) translateY(4px)' },
-          '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+          '0%':   { opacity: '0', transform: 'scale(0.98)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
         },
         'slide-in-left': {
           '0%':   { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(0)' },
         },
         'toast-in': {
-          '0%':   { opacity: '0', transform: 'translateY(12px) scale(0.98)' },
-          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+          '0%':   { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         /* Water surface: the wave SVG is 200% wide, so -50% is a seamless loop */
         wave: {
@@ -245,11 +222,11 @@ export default {
       },
       animation: {
         'pulse-alert':   'pulse-alert 2.2s ease-out infinite',
-        'fade-in':       'fade-in 0.25s ease-out both',
-        'fade-in-up':    'fade-in-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both',
-        'scale-in':      'scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both',
-        'slide-in-left': 'slide-in-left 0.32s cubic-bezier(0.16, 1, 0.3, 1) both',
-        'toast-in':      'toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both',
+        'fade-in':       'fade-in 0.2s ease-out both',
+        'fade-in-up':    'fade-in-up 0.25s ease-out both',
+        'scale-in':      'scale-in 0.18s ease-out both',
+        'slide-in-left': 'slide-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1) both',
+        'toast-in':      'toast-in 0.2s ease-out both',
         wave:            'wave 7s linear infinite',
         'wave-slow':     'wave 12s linear infinite reverse',
         shimmer:         'shimmer 1.8s linear infinite',
