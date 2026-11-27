@@ -67,9 +67,9 @@ bool buttonPressed = false;
 // --- HydroTrack Device State (built-in fallbacks, overwritten by Firebase settings) ---
 String claimed_by = "";
 float calibration_factor = 1.1;
-float max_flow_threshold = 40.0;
-int max_continuous_minutes = 60;
-float hammer_threshold_lpm = 10.0;
+float max_flow_threshold = 22.0;                 // fallback = 4-person household; the web app sets this from household size
+int max_continuous_minutes = 70;                 // fallback = 4-person household
+float hammer_threshold_lpm = 7.0;                // fallback = 4-person household
 
 // --- Alert switches and off-hours rule (synced from Firebase) ---
 bool alerts_enabled = true;                 // master switch for all alerts
@@ -77,7 +77,7 @@ bool hammer_alerts_enabled = true;          // water hammer detection on/off
 bool off_hours_alerts_enabled = true;       // off-hours (quiet window) detection on/off
 String off_hours_start = "00:00";           // quiet window start (HH:MM)
 String off_hours_end = "06:00";             // quiet window end (HH:MM), may cross midnight
-int off_hours_min_duration_minutes = 1;     // sustained flow needed inside the window (whole minutes)
+int off_hours_min_duration_minutes = 2;     // fallback = 4-person household (whole minutes)
 
 float current_flow = 0.0;
 float todays_usage = 0.0;

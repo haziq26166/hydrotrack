@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   FaGear, FaFloppyDisk, FaBell, FaMicrochip,
-  FaBolt, FaMoon, FaSliders, FaPencil, FaWater,
+  FaMoon, FaSliders, FaPencil, FaUsers,
 } from 'react-icons/fa6';
 import { database, ref, onValue, update, get } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
@@ -12,35 +12,52 @@ import { GlassButton } from '@/components/ui/GlassButton';
 import { FloatingInput } from '@/components/ui/FloatingInput';
 import { Notice } from '@/components/ui/Notice';
 import { SwitchRow } from '@/components/ui/Switch';
-import { DeviceSelect } from '@/components/devices/DeviceSelect';
+import { NumberStepper } from '@/components/ui/NumberStepper';
+import { DeviceCombobox } from '@/components/devices/DeviceCombobox';
 import { Toast } from '@/components/ui/Toast';
 import { DEFAULT_DEVICE_SETTINGS } from '@/lib/deviceDefaults';
+import {
+  computeThresholds, clampHousehold,
+  DEFAULT_HOUSEHOLD_SIZE, HOUSEHOLD_MIN, HOUSEHOLD_MAX,
+} from '@/lib/thresholds';
 
-const DEFAULT_FORM = { ...DEFAULT_DEVICE_SETTINGS };
 const D = DEFAULT_DEVICE_SETTINGS;
+
+const DEFAULT_FORM = {
+  alerts_enabled:           D.alerts_enabled,
+  off_hours_alerts_enabled: D.off_hours_alerts_enabled,
+  off_hours_start:          D.off_hours_start,
+  off_hours_end:            D.off_hours_end,
+  household_size:           DEFAULT_HOUSEHOLD_SIZE,
+};
 
 /* Returns an error message, or null when every value is acceptable. */
 function validateSettings(f) {
-  const isNum = (v) => Number.isFinite(parseFloat(v));
-
-  if (![f.calibration_factor, f.max_flow_threshold, f.hammer_threshold_lpm].every(isNum)) {
-    return 'Please enter a valid threshold value.';
-  }
-  if (parseFloat(f.calibration_factor) <= 0)   return 'Calibration factor must be greater than 0.';
-  if (parseFloat(f.max_flow_threshold) <= 0)   return 'High flow threshold must be greater than 0.';
-  if (parseFloat(f.hammer_threshold_lpm) <= 0) return 'Spike threshold must be greater than 0.';
-
-  if (!(parseInt(f.max_continuous_minutes, 10) >= 1)) {
-    return 'Max continuous flow must be at least 1 minute.';
-  }
-  const graceMinutes = Number(f.off_hours_min_duration_minutes);
-  if (!Number.isInteger(graceMinutes) || graceMinutes < 1) {
-    return 'Minimum flow duration must be a whole number of minutes (at least 1).';
+  if (!f.off_hours_start || !f.off_hours_end) {
+    return 'Please choose both a start and an end time for off-hours.';
   }
   if (f.off_hours_start === f.off_hours_end) {
-    return 'Quiet window start and end must differ.';
+    return 'Off-hours start and end must differ.';
+  }
+  if (!Number.isInteger(f.household_size)
+      || f.household_size < HOUSEHOLD_MIN
+      || f.household_size > HOUSEHOLD_MAX) {
+    return `Household size must be between ${HOUSEHOLD_MIN} and ${HOUSEHOLD_MAX}.`;
   }
   return null;
+}
+
+/* Reads a device's saved settings into the form shape. */
+async function readDeviceSettings(id) {
+  const snap = await get(ref(database, `devices/${id}/settings`));
+  const s = snap.val() || {};
+  return {
+    alerts_enabled:           s.alerts_enabled           !== false,
+    off_hours_alerts_enabled: s.off_hours_alerts_enabled !== false,
+    off_hours_start:          s.off_hours_start          ?? D.off_hours_start,
+    off_hours_end:            s.off_hours_end            ?? D.off_hours_end,
+    household_size:           clampHousehold(s.household_size ?? DEFAULT_HOUSEHOLD_SIZE),
+  };
 }
 
 export default function Settings() {
@@ -55,9 +72,10 @@ export default function Settings() {
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving]     = useState(false);
 
+  /* Pick the first device, or a new one if the selected device was unlinked. */
   useEffect(() => {
     const ids = Object.keys(devices);
-    if (!deviceId && ids.length) setDeviceId(ids[0]);
+    if (ids.length && (!deviceId || !devices[deviceId])) setDeviceId(ids[0]);
   }, [devices, deviceId]);
 
   useEffect(() => {
@@ -68,33 +86,18 @@ export default function Settings() {
     return unsub;
   }, [user.uid]);
 
-  async function loadDeviceSettings(id) {
-    if (!id) return;
-    const snap = await get(ref(database, `devices/${id}/settings`));
-    const s = snap.val() || {};
-    setForm({
-      alerts_enabled:                 s.alerts_enabled                 !== false,
-      calibration_factor:             s.calibration_factor             ?? D.calibration_factor,
-      max_flow_threshold:             s.max_flow_threshold             ?? D.max_flow_threshold,
-      max_continuous_minutes:         s.max_continuous_minutes         ?? D.max_continuous_minutes,
-      off_hours_alerts_enabled:       s.off_hours_alerts_enabled       !== false,
-      off_hours_start:                s.off_hours_start                ?? D.off_hours_start,
-      off_hours_end:                  s.off_hours_end                  ?? D.off_hours_end,
-      /* Older devices stored this in seconds: show it as whole minutes (at least 1). */
-      off_hours_min_duration_minutes:
-        s.off_hours_min_duration_minutes
-        ?? (Number(s.off_hours_min_duration_seconds) > 0
-          ? Math.max(1, Math.ceil(Number(s.off_hours_min_duration_seconds) / 60))
-          : D.off_hours_min_duration_minutes),
-      hammer_alerts_enabled:          s.hammer_alerts_enabled          !== false,
-      hammer_threshold_lpm:           s.hammer_threshold_lpm           ?? D.hammer_threshold_lpm,
-    });
-  }
-
   useEffect(() => {
-    if (!deviceId) return;
+    if (!deviceId) return undefined;
+    let cancelled = false;
+
     setEditMode(false);
-    loadDeviceSettings(deviceId);
+    readDeviceSettings(deviceId)
+      .then((loaded) => { if (!cancelled) setForm(loaded); })
+      .catch(() => {
+        if (!cancelled) setToast({ type: 'error', message: 'Could not load device settings.' });
+      });
+
+    return () => { cancelled = true; };
   }, [deviceId]);
 
   const setField = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
@@ -118,29 +121,27 @@ export default function Settings() {
 
   async function handleSave(e) {
     e.preventDefault();
-    if (!deviceId) return;
+    if (!deviceId || !editMode) return;
 
     const problem = validateSettings(form);
     if (problem) return setToast({ type: 'error', message: problem });
 
     setSaving(true);
     try {
+      /* The user's choices + every alert limit calculated by the system from
+         the household size. Bumping updated_at makes the device re-download. */
       await update(ref(database, `devices/${deviceId}/settings`), {
-        alerts_enabled:                 form.alerts_enabled,
-        calibration_factor:             parseFloat(form.calibration_factor),
-        max_flow_threshold:             parseFloat(form.max_flow_threshold),
-        max_continuous_minutes:         parseInt(form.max_continuous_minutes, 10),
-        off_hours_alerts_enabled:       form.off_hours_alerts_enabled,
-        off_hours_start:                form.off_hours_start,
-        off_hours_end:                  form.off_hours_end,
-        off_hours_min_duration_minutes: parseInt(form.off_hours_min_duration_minutes, 10),
-        off_hours_min_duration_seconds: null,   /* legacy key — removed */
-        hammer_alerts_enabled:          form.hammer_alerts_enabled,
-        hammer_threshold_lpm:           parseFloat(form.hammer_threshold_lpm),
-        hammer_cooldown_seconds:        null,   /* legacy key — the cooldown is fixed in the firmware */
-        updated_at:                     Date.now(),
+        alerts_enabled:           form.alerts_enabled,
+        off_hours_alerts_enabled: form.off_hours_alerts_enabled,
+        off_hours_start:          form.off_hours_start,
+        off_hours_end:            form.off_hours_end,
+        ...computeThresholds(form.household_size),
+        updated_at:               Date.now(),
       });
-      setToast({ type: 'success', message: `Settings saved for ${deviceId}.` });
+      setToast({
+        type: 'success',
+        message: `Settings saved for ${devices[deviceId]?.name || deviceId}.`,
+      });
       setEditMode(false);
     } catch (err) {
       setToast({ type: 'error', message: err.message });
@@ -150,7 +151,9 @@ export default function Settings() {
   }
 
   async function cancelEdit() {
-    if (deviceId) await loadDeviceSettings(deviceId);
+    if (deviceId) {
+      try { setForm(await readDeviceSettings(deviceId)); } catch { /* keep current form */ }
+    }
     setEditMode(false);
   }
 
@@ -158,7 +161,7 @@ export default function Settings() {
 
   return (
     <>
-      <TopBar title="Settings" icon={FaGear} subtitle="Notifications, calibration and alert rules" />
+      <TopBar title="Settings" icon={FaGear} subtitle="Notifications and off-hours" />
 
       <div className="space-y-5">
 
@@ -179,12 +182,12 @@ export default function Settings() {
           </div>
         </GlassCard>
 
-        {/* 2. DEVICE CONFIGURATION */}
+        {/* 2. DEVICE SETTINGS */}
         <GlassCard>
           <SectionHeader
             icon={FaMicrochip}
-            title="Device calibration & alert triggers"
-            subtitle="Configure pulse sensors and leak thresholds per hardware unit."
+            title="Device settings"
+            subtitle="Alerts, off-hours and household size for each device."
             action={
               hasDevices && !editMode && (
                 <GlassButton
@@ -206,14 +209,14 @@ export default function Settings() {
               </span>
               <p className="mt-4 text-sm font-bold text-ink-800">No devices registered</p>
               <p className="mt-1 text-xs text-ink-500">
-                Link a device first to configure its calibration and alert rules.
+                Link a device first to manage its alert settings.
               </p>
             </div>
           ) : (
             <form onSubmit={handleSave}>
               <div className="mt-5">
                 <label className="kpi-label mb-2 block">Select device</label>
-                <DeviceSelect devices={devices} value={deviceId} onChange={setDeviceId} allLabel={null} />
+                <DeviceCombobox devices={devices} value={deviceId} onChange={setDeviceId} />
               </div>
 
               {/* ---- Master Control ---- */}
@@ -234,38 +237,26 @@ export default function Settings() {
                 )}
               </FormSection>
 
-              {/* ---- Alert Triggers ---- */}
+              {/* ---- Household ---- */}
               <FormSection>
-                <SubSectionHeader icon={FaBolt} title="Alert triggers" />
-                <div className="grid gap-4 md:grid-cols-2">
-                  <NumberField
-                    id="setting-calibration"
-                    label="Calibration factor (Hz/LPM)"
-                    hint="Pulses per second per 1 LPM. Lower value = higher reading. Default 1.1."
-                    step="0.1" min="1"
-                    value={form.calibration_factor}
-                    onChange={setField('calibration_factor')}
+                <SubSectionHeader icon={FaUsers} title="Household" />
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold ${editMode ? 'text-ink-800' : 'text-ink-500'}`}>
+                      People in this household
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-ink-500">
+                      Number of people who use water at this location.
+                    </p>
+                  </div>
+                  <NumberStepper
+                    compact
+                    value={form.household_size}
+                    onChange={setField('household_size')}
+                    min={HOUSEHOLD_MIN}
+                    max={HOUSEHOLD_MAX}
                     disabled={!editMode}
-                  />
-                  <NumberField
-                    id="setting-max-flow"
-                    label="High flow threshold (LPM)"
-                    hint="High Flow alert when flow stays at or above this for 3 seconds."
-                    step="0.5" min="0"
-                    value={form.max_flow_threshold}
-                    onChange={setField('max_flow_threshold')}
-                    disabled={!editMode}
-                  />
-                </div>
-                <div className="mt-4">
-                  <NumberField
-                    id="setting-max-continuous"
-                    label="Max continuous flow (minutes)"
-                    hint="Continuous Leak alert if water runs non-stop longer than this. Default 60."
-                    step="1" min="1"
-                    value={form.max_continuous_minutes}
-                    onChange={setField('max_continuous_minutes')}
-                    disabled={!editMode}
+                    aria-label="number of people"
                   />
                 </div>
               </FormSection>
@@ -275,7 +266,7 @@ export default function Settings() {
                 <SubSectionHeader icon={FaMoon} title="Off-hours flow alerts" />
                 <SwitchRow
                   title="Enable off-hours detection"
-                  description="Alert when water flows during a configurable quiet window (e.g., overnight)."
+                  description="Alert when water flows during a quiet window (e.g., overnight)."
                   checked={form.off_hours_alerts_enabled}
                   onChange={setField('off_hours_alerts_enabled')}
                   disabled={!editMode}
@@ -283,7 +274,7 @@ export default function Settings() {
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <TimeField
                     id="setting-off-hours-start"
-                    label="Quiet window start"
+                    label="Off-hours start"
                     hint="Beginning of the no-flow period."
                     value={form.off_hours_start}
                     onChange={setField('off_hours_start')}
@@ -291,53 +282,13 @@ export default function Settings() {
                   />
                   <TimeField
                     id="setting-off-hours-end"
-                    label="Quiet window end"
+                    label="Off-hours end"
                     hint="May cross midnight (22:00 → 06:00)."
                     value={form.off_hours_end}
                     onChange={setField('off_hours_end')}
                     disabled={!editMode}
                   />
                 </div>
-                <div className="mt-4">
-                  <NumberField
-                    id="setting-grace"
-                    label="Minimum flow duration (minutes)"
-                    hint="Ignore brief off-hours usage (a single flush). Alert only after this many whole minutes of sustained flow."
-                    step="1" min="1"
-                    value={form.off_hours_min_duration_minutes}
-                    onChange={setField('off_hours_min_duration_minutes')}
-                    disabled={!editMode}
-                  />
-                </div>
-              </FormSection>
-
-              {/* ---- Water Hammer ---- */}
-              <FormSection>
-                <SubSectionHeader icon={FaWater} title="Water hammer detection" />
-                <SwitchRow
-                  title="Enable water hammer detection"
-                  description="Alert when flow suddenly collapses from a high rate to almost nothing — typically a valve slamming shut."
-                  checked={form.hammer_alerts_enabled}
-                  onChange={setField('hammer_alerts_enabled')}
-                  disabled={!editMode}
-                />
-                <div className="mt-4">
-                  <NumberField
-                    id="setting-hammer-threshold"
-                    label="Spike threshold (LPM)"
-                    hint="Alert when flow was at least this high and then suddenly drops to about 0 within 3 seconds. Default 10."
-                    step="1" min="1"
-                    value={form.hammer_threshold_lpm}
-                    onChange={setField('hammer_threshold_lpm')}
-                    disabled={!editMode}
-                  />
-                </div>
-                <Notice tone="info" className="mt-4 !text-xs">
-                  Water hammer is a pressure surge caused by a valve closing suddenly. The
-                  device flags it when flow that was at or above the spike threshold falls
-                  to about 2 LPM or less within 3 seconds. Repeat hammer alerts are limited
-                  to one every 30 seconds.
-                </Notice>
               </FormSection>
 
               {/* ---- Actions ---- */}
@@ -397,23 +348,6 @@ function SubSectionHeader({ icon: Icon, title }) {
 
 function FormSection({ children }) {
   return <div className="mt-6 border-t border-white/70 pt-6">{children}</div>;
-}
-
-function NumberField({ id, label, hint, value, onChange, disabled, ...rest }) {
-  return (
-    <div>
-      <FloatingInput
-        id={id}
-        label={label}
-        type="number"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        {...rest}
-      />
-      {hint && <p className="mt-1.5 text-xs text-ink-500">{hint}</p>}
-    </div>
-  );
 }
 
 function TimeField({ id, label, hint, value, onChange, disabled }) {
