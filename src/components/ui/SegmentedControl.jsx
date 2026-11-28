@@ -10,7 +10,7 @@ export function SegmentedControl({ options, value, onChange, label, className = 
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex items-center gap-0.5 rounded-md border border-ink-200 bg-ink-50 p-0.5 ${className}`}
+      className={`inline-flex items-center gap-0.5 rounded-md border border-white/80 bg-white/45 p-0.5 shadow-glass-sm backdrop-blur-md ${className}`}
     >
       {options.map((o) => (
         <button
@@ -22,7 +22,7 @@ export function SegmentedControl({ options, value, onChange, label, className = 
             'h-7 rounded px-3 text-xs font-semibold transition-colors duration-150',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hydro/40',
             value === o.id
-              ? 'bg-white text-hydro-700 shadow-glass-sm'
+              ? 'bg-white/90 text-hydro-700 shadow-glass-sm'
               : 'text-ink-500 hover:text-ink-800',
           ].join(' ')}
         >

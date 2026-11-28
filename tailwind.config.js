@@ -129,7 +129,7 @@ export default {
           DEFAULT: '#6B7A88',
         },
 
-        /* CANVAS — flat page background */
+        /* CANVAS — base tone under the glass mesh background (see index.css) */
         canvas: {
           DEFAULT: '#F3F6F9',
           soft:    '#F8FAFC',
@@ -149,35 +149,36 @@ export default {
         ],
       },
 
-      /* Tighter corner radii — every existing rounded-xl / 2xl / 3xl in the
-         app shrinks to a standard dashboard look without editing each file. */
+      /* Soft glass radii. Cards use `rounded-lg`; icon tiles / notices use 2xl+.
+         Small controls (buttons, inputs, nav items) use `md`.
+         In browsers that support CSS `corner-shape`, index.css turns the
+         lg-and-up radii into a gentle squircle. */
       borderRadius: {
-        md:  '4px',
-        lg:  '6px',
-        xl:  '6px',
-        '2xl': '8px',
-        '3xl': '8px',
-        '4xl': '10px',
+        md:  '8px',
+        lg:  '16px',
+        xl:  '12px',
+        '2xl': '20px',
+        '3xl': '24px',
+        '4xl': '28px',
       },
 
-      /* Flat, subtle elevation only. Names are kept so existing classes
-         keep compiling. */
+      /* Soft teal-tinted elevation for floating glass. Names are kept so
+         existing classes keep compiling. */
       boxShadow: {
-        'glass-sm': '0 1px 2px 0 rgba(15, 28, 43, 0.05)',
-        glass:      '0 1px 2px 0 rgba(15, 28, 43, 0.06)',
-        'glass-lg': '0 8px 24px -6px rgba(15, 28, 43, 0.18)',
-        brand:      '0 1px 2px 0 rgba(15, 28, 43, 0.12)',
-        'brand-lg': '0 2px 4px 0 rgba(15, 28, 43, 0.14)',
-        alert:      '0 1px 2px 0 rgba(15, 28, 43, 0.12)',
-        hydro:      '0 1px 2px 0 rgba(15, 28, 43, 0.12)',
-        'hydro-lg': '0 2px 4px 0 rgba(15, 28, 43, 0.14)',
-        glow:       '0 0 0 3px rgba(10, 127, 139, 0.15)',
+        'glass-sm': '0 2px 10px -3px rgba(7, 85, 93, 0.16)',
+        glass:      '0 8px 30px -10px rgba(7, 85, 93, 0.22)',
+        'glass-lg': '0 18px 48px -14px rgba(7, 85, 93, 0.32)',
+        brand:      '0 6px 16px -6px rgba(10, 127, 139, 0.55)',
+        'brand-lg': '0 14px 32px -10px rgba(10, 127, 139, 0.55)',
+        alert:      '0 6px 16px -6px rgba(217, 83, 74, 0.5)',
+        hydro:      '0 6px 16px -6px rgba(10, 127, 139, 0.55)',
+        'hydro-lg': '0 14px 32px -10px rgba(10, 127, 139, 0.55)',
+        glow:       '0 0 0 3px rgba(10, 127, 139, 0.18)',
       },
 
       backgroundImage: {
-        /* Gradients flattened to solid fills (names kept for compatibility) */
-        'hydro-gradient': 'linear-gradient(#0A7F8B, #0A7F8B)',
-        'aqua-mint':      'linear-gradient(#E7F6F7, #E7F6F7)',
+        'hydro-gradient': 'linear-gradient(135deg, #0E98A6 0%, #0A7F8B 55%, #086A74 100%)',
+        'aqua-mint':      'linear-gradient(135deg, #E6F9FC 0%, #D6F7EF 100%)',
         'glass-sheen':    'none',
       },
 

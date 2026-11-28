@@ -4,10 +4,10 @@ import {
 } from 'react-icons/fa6';
 
 const TONES = {
-  success: { Icon: FaCircleCheck,         cls: 'bg-sea-50 border-sea-200 text-sea-800',       icon: 'text-sea-500' },
-  error:   { Icon: FaCircleExclamation,   cls: 'bg-coral-50 border-coral-200 text-coral-800', icon: 'text-coral-500' },
-  warning: { Icon: FaTriangleExclamation, cls: 'bg-sand-50 border-sand-200 text-sand-800',    icon: 'text-sand-500' },
-  info:    { Icon: FaCircleInfo,          cls: 'bg-aqua-50 border-aqua-200 text-aqua-900',    icon: 'text-aqua-600' },
+  success: { Icon: FaCircleCheck,         cls: 'bg-sea-50/75 border-sea-200/80 text-sea-800',       icon: 'text-sea-500' },
+  error:   { Icon: FaCircleExclamation,   cls: 'bg-coral-50/80 border-coral-200/80 text-coral-800', icon: 'text-coral-500' },
+  warning: { Icon: FaTriangleExclamation, cls: 'bg-sand-50/80 border-sand-200/80 text-sand-800',    icon: 'text-sand-500' },
+  info:    { Icon: FaCircleInfo,          cls: 'bg-aqua-50/75 border-aqua-200/80 text-aqua-900',    icon: 'text-aqua-600' },
 };
 
 /**
@@ -36,7 +36,7 @@ export function Toast({ toast, onClose, duration = 3500 }) {
         aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
         className={[
           'pointer-events-auto flex max-w-md items-center gap-2.5 rounded-lg border px-3 py-2.5',
-          'shadow-glass-lg animate-toast-in',
+          'shadow-glass-lg backdrop-blur-xl backdrop-saturate-150 animate-toast-in',
           cls,
         ].join(' ')}
       >

@@ -1,11 +1,11 @@
 /**
- * Flat panel (white, 1 px border, small radius).
+ * Frosted-glass panel (translucent fill, backdrop blur, soft edge, squircle-ish corners).
  * The component name is kept so existing imports keep working.
  *
  * variant   default | strong | soft            → surface style
  *           ok | warn | leak | offline | aqua  → tinted status panel
  * padded    true (p-4) | false | 'sm' | 'md' | 'lg'
- * interactive  subtle border change on hover (for clickable panels)
+ * interactive  edge brightens and shadow deepens on hover (for clickable panels)
  */
 const VARIANTS = {
   default: 'glass',
@@ -42,7 +42,7 @@ export function GlassCard({
         'rounded-lg',
         VARIANTS[variant] ?? VARIANTS.default,
         paddingCls,
-        interactive ? 'transition-colors duration-150 hover:border-ink-300' : '',
+        interactive ? 'transition-[box-shadow,border-color] duration-150 hover:border-white hover:shadow-glass-lg' : '',
         className,
       ].join(' ')}
       {...rest}

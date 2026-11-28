@@ -141,7 +141,7 @@ export function DeviceCombobox({
           id={listId}
           role="listbox"
           aria-label={label}
-          className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-ink-200 bg-white p-1 shadow-glass-lg"
+          className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto glass-strong rounded-md p-1"
         >
           {filtered.length === 0 ? (
             <li className="px-2.5 py-2 text-[13px] text-ink-500">

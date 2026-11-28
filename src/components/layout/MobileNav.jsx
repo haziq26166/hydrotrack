@@ -82,8 +82,9 @@ export function MobileNav({ onAddDevice, leak }) {
       {/* ============================================================
           TOP BAR
           ============================================================ */}
-      <div className="sticky top-0 z-30 border-b border-ink-200 bg-white pt-safe md:hidden">
-        <div className="flex h-12 items-center justify-between px-2">
+      <div className="sticky top-0 z-30 pt-safe md:hidden">
+       <div className="px-3 pt-3">
+        <div className="glass flex h-12 items-center justify-between rounded-2xl px-2">
           <button
             ref={toggleRef}
             type="button"
@@ -122,6 +123,7 @@ export function MobileNav({ onAddDevice, leak }) {
             </span>
           </Link>
         </div>
+       </div>
       </div>
 
       {/* ============================================================
@@ -131,7 +133,7 @@ export function MobileNav({ onAddDevice, leak }) {
         createPortal(
           <div className="fixed inset-0 z-50 md:hidden">
             <div
-              className="absolute inset-0 bg-ink-900/40 animate-fade-in"
+              className="absolute inset-0 bg-ink-900/25 backdrop-blur-sm animate-fade-in"
               onClick={close}
               aria-hidden="true"
             />
@@ -142,8 +144,14 @@ export function MobileNav({ onAddDevice, leak }) {
               role="dialog"
               aria-modal="true"
               aria-label="Navigation menu"
-              className="absolute inset-y-0 left-0 flex w-64 max-w-[85%] flex-col border-r border-ink-200 bg-white px-2 py-3 pt-safe pb-safe animate-slide-in-left"
+              className="absolute inset-y-0 left-0 flex w-[17.5rem] max-w-[92%] animate-slide-in-left"
+              style={{
+                padding: '0.75rem',
+                paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+                paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+              }}
             >
+             <div className="glass-strong flex h-full w-full flex-col rounded-2xl px-2 py-3">
               <SidebarContent
                 onNavigate={close}
                 onAddDevice={onAddDevice}
@@ -159,6 +167,7 @@ export function MobileNav({ onAddDevice, leak }) {
                   </button>
                 }
               />
+             </div>
             </aside>
           </div>,
           document.body,

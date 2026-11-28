@@ -26,7 +26,7 @@ export function Spinner({ fullscreen = false, size = 'md', label = 'Loading' }) 
   if (!fullscreen) return ring;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-canvas/80 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-white/35 backdrop-blur-lg animate-fade-in">
       {ring}
     </div>
   );

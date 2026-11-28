@@ -42,13 +42,13 @@ export function DashboardLayout() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas md:flex-row">
+    <div className="flex min-h-screen flex-col md:flex-row">
       {/* Mobile: top bar + slide-in drawer (hidden from md up) */}
       <MobileNav onAddDevice={openAddDevice} leak={leak} />
 
-      {/* Desktop: fixed full-height sidebar (hidden below md) */}
+      {/* Desktop: floating glass sidebar, inset 12 px from the edges (hidden below md) */}
       <div className="hidden shrink-0 md:block">
-        <div className="sticky top-0 h-screen">
+        <div className="sticky top-0 z-20 h-screen p-3 pr-0">
           <Sidebar
             collapsed={collapsed}
             onToggle={toggleCollapsed}
